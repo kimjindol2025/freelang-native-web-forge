@@ -7,6 +7,16 @@ import { Lexer, TokenBuffer } from '../src/lexer/lexer';
 import { parseMinimalFunction } from '../src/parser/parser';
 import { astToProposal, proposalToString } from '../src/bridge/ast-to-proposal';
 
+/**
+ * Helper: 코드를 파싱하여 HeaderProposal 반환
+ */
+function parseAndPropose(code: string) {
+  const lexer = new Lexer(code);
+  const buffer = new TokenBuffer(lexer);
+  const ast = parseMinimalFunction(buffer);
+  return astToProposal(ast);
+}
+
 describe('Phase 5: v1 코드 통합 (.free 파일 파싱)', () => {
   // ============================================================================
   // PART 1: Lexer 토큰 확장 테스트
@@ -977,5 +987,108 @@ intent: "변환"`;
 
       expect(EXPECTED).toBeCloseTo(0.833, 3);
     });
+  });
+});
+
+// ============================================================================
+// PART 8: Phase 5 Task 4.3 - Dynamic Optimization (Directive 동적 조정)
+// ============================================================================
+
+describe('Phase 5 Task 4.3: Dynamic Optimization - Directive 동적 조정', () => {
+  test('body 분석으로 directive 변경: intent→memory, body→speed', () => {
+    // intent: "배열" (기본 → memory)
+    // body: 루프 + 누적 (→ speed)
+    // 예상: body 신뢰도 높으므로 speed로 변경
+    const code = `fn sum
+input: array<number>
+output: number
+intent: "배열 합산"
+{ for i in 0..arr.len() { sum += arr[i]; } return sum; }`;
+
+    const proposal = parseAndPropose(code);
+
+    expect(proposal.directive).toBe('speed');
+    expect(proposal.confidence).toBeGreaterThan(0.75); // body 신뢰도 높음
+  });
+
+  test('intent와 body directive 일치: 신뢰도 상승', () => {
+    // intent: "빠른 정렬" (→ speed)
+    // body: 중첩 루프 + 누적 (→ speed)
+    // 예상: 두 신호가 일치하므로 신뢰도 높음
+    const code = `fn quickSort
+input: array<number>
+output: array<number>
+intent: "빠른 정렬"
+{ for i in 0..n { for j in 0..n-1 { x += i; } } }`;
+
+    const proposal = parseAndPropose(code);
+
+    expect(proposal.directive).toBe('speed');
+    // 0.98(타입) × 0.8(directive) = 0.784
+    expect(proposal.confidence).toBeGreaterThan(0.75); // 일치하므로 높은 신뢰도
+  });
+
+  test('body 신뢰도 낮을 때 intent 우선: conservative 접근', () => {
+    // intent: "안전한 검사" (→ safety)
+    // body: 단순 변수 선언 (→ 신뢰도 낮음)
+    // 예상: body 신뢰도 낮으므로 intent 유지
+    const code = `fn validate
+input: array<string>
+output: boolean
+intent: "안전한 검사"
+{ let x = 0; }`;
+
+    const proposal = parseAndPropose(code);
+
+    // intent 기반 directive 유지
+    expect(proposal.directive).toBe('safety');
+    // body 신뢰도 낮으므로 신뢰도 감소 (0.7)
+    expect(proposal.confidence).toBeLessThan(0.8);
+  });
+
+  test('body만 있고 intent 없을 때: body directive 사용', () => {
+    // intent 없음 (기본 → memory)
+    // body: 루프 + 누적 (→ speed)
+    // 예상: body 신뢰도 높으므로 speed 선택
+    const code = `fn calculate
+input: array<number>
+output: number
+{ let result = 0; for i in 0..n { result += arr[i]; } return result; }`;
+
+    const proposal = parseAndPropose(code);
+
+    expect(proposal.directive).toBe('speed');
+    expect(proposal.confidence).toBeGreaterThan(0.75);
+  });
+
+  test('intent 기본값이지만 body가 명확한 패턴 제시', () => {
+    // intent 없음 (기본 → memory)
+    // body: 루프 + 누적 (→ speed)
+    // 예상: body 분석이 명확하므로 speed로 변경
+    const code = `fn filterArray
+input: array<number>
+output: array<number>
+{ let filtered = []; for item in data { result += item; } }`;
+
+    const proposal = parseAndPropose(code);
+
+    // body에 루프 + 누적이 있으므로 directive는 speed
+    expect(proposal.directive).toBe('speed');
+  });
+
+  test('신뢰도 계산: 타입 신뢰도 × directive 신뢰도', () => {
+    // 타입 명시 (0.98) × body 신뢰도 높음 (0.8+)
+    // 예상: 0.98 × 0.8 ≈ 0.784
+    const code = `fn sum
+input: array<number>
+output: number
+intent: "합산"
+{ for i in 0..10 { sum += arr[i]; } }`;
+
+    const proposal = parseAndPropose(code);
+
+    // 타입 명시(0.98) × body directive(0.8+) = 0.784+
+    expect(proposal.confidence).toBeGreaterThan(0.75);
+    expect(proposal.confidence).toBeLessThanOrEqual(0.98);
   });
 });

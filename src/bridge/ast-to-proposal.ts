@@ -8,6 +8,7 @@
 import { MinimalFunctionAST } from '../parser/ast';
 import { HeaderProposal } from '../engine/auto-header';
 import { Directive } from '../engine/patterns';
+import { analyzeBody } from '../analyzer/body-analysis';
 
 /**
  * AST 파싱 신뢰도 (명시적 선언이므로 매우 높음)
@@ -49,11 +50,44 @@ export function astToProposal(ast: MinimalFunctionAST): HeaderProposal {
   const inputType = ast.inputType || inferTypeFromIntent(ast.intent || '', 'input');
   const outputType = ast.outputType || inferTypeFromIntent(ast.intent || '', 'output');
 
-  // 지시어 (directive) 추론: intent에서 최적화 방향 찾기
-  const directive = inferDirective(ast.intent || '');
+  // Phase 5 Task 4.3: 지시어 (directive) 동적 결정
+  // intent 기반 directive 먼저 추론
+  let directive = inferDirective(ast.intent || '');
+  let directiveConfidence = 1.0; // 기본값: body 없을 때는 intent만 사용
+
+  // body가 있으면 패턴 분석으로 directive 재검토
+  if (ast.body) {
+    const bodyAnalysis = analyzeBody(ast.body);
+
+    // body 분석 신뢰도가 충분히 높으면 body 제안 사용
+    // (body 분석이 코드 실제 패턴을 보므로 더 정확함)
+    if (bodyAnalysis.confidence > 0.75) {
+      directive = bodyAnalysis.suggestedDirective;
+      directiveConfidence = bodyAnalysis.confidence;
+    }
+    // body 신뢰도가 중간(0.6-0.75) 수준이면 두 directive 비교
+    else if (bodyAnalysis.confidence >= 0.6 && bodyAnalysis.confidence <= 0.75) {
+      // intent와 body가 일치하면 신뢰도 상승
+      if (bodyAnalysis.suggestedDirective === directive) {
+        directiveConfidence = Math.min(1.0, (0.7 + bodyAnalysis.confidence) / 2);
+      }
+      // intent와 body가 불일치하면 intent 유지 (보수적 접근)
+      // body 신뢰도가 낮으므로 intent 우선
+      else {
+        directiveConfidence = 0.7; // intent 기반만 사용
+      }
+    } else {
+      // body 신뢰도가 낮으면 intent만 신뢰
+      directiveConfidence = 0.7;
+    }
+  }
 
   // 복잡도 추론 (의도에서 또는 기본값)
   const complexity = inferComplexity(ast.intent || '');
+
+  // 최종 신뢰도: 타입 신뢰도 × directive 신뢰도
+  // - 타입이 명시되지 않거나 directive가 불명확하면 최종 신뢰도 낮아짐
+  const finalConfidence = confidence * directiveConfidence;
 
   return {
     fn: ast.fnName,
@@ -62,7 +96,7 @@ export function astToProposal(ast: MinimalFunctionAST): HeaderProposal {
     reason,
     directive,
     complexity,
-    confidence,
+    confidence: finalConfidence,
     matched_op
   };
 }
