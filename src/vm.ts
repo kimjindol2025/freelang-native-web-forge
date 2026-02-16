@@ -1,5 +1,5 @@
 // FreeLang v2 VM - Stack-based IR interpreter
-// No strings for humans. Pure numeric execution.
+// Extended: Now supports strings for Project Ouroboros (Self-Hosting)
 
 import { Op, Inst, VMResult, VMError } from './types';
 import { Iterator, IteratorEngine } from './engine/iterator';
@@ -8,8 +8,8 @@ const MAX_CYCLES = 100_000;
 const MAX_STACK  = 10_000;
 
 export class VM {
-  private stack: (number | Iterator)[] = [];
-  private vars: Map<string, number | number[] | Iterator> = new Map();
+  private stack: (number | Iterator | string)[] = [];
+  private vars: Map<string, number | number[] | Iterator | string> = new Map();
   private pc = 0;
   private cycles = 0;
   private callStack: number[] = [];  // for CALL/RET
@@ -320,6 +320,119 @@ export class VM {
         this.stack.push(value);
         this.guardStack();
         this.stack.push(nextIter);
+        this.pc++;
+        break;
+      }
+
+      // ── String Operations (Project Ouroboros) ──
+      case Op.STR_NEW:
+        // arg: string → push to stack
+        this.guardStack();
+        this.stack.push(arg as string);
+        this.pc++;
+        break;
+
+      case Op.STR_LEN: {
+        // stack: [str] → [length]
+        this.need(1);
+        const str = this.stack[this.stack.length - 1];
+        if (typeof str !== 'string') throw new Error('not_string');
+        this.stack[this.stack.length - 1] = str.length;
+        this.pc++;
+        break;
+      }
+
+      case Op.STR_AT: {
+        // stack: [str, index] → [char]
+        this.need(2);
+        const idx = this.stack.pop() as number;
+        const str = this.stack.pop() as string;
+        if (typeof str !== 'string') throw new Error('not_string');
+        this.guardStack();
+        this.stack.push(str[Math.floor(idx)] || '');
+        this.pc++;
+        break;
+      }
+
+      case Op.STR_SUB: {
+        // stack: [str, start, end] → [substr]
+        this.need(3);
+        const end = this.stack.pop() as number;
+        const start = this.stack.pop() as number;
+        const str = this.stack.pop() as string;
+        if (typeof str !== 'string') throw new Error('not_string');
+        this.guardStack();
+        this.stack.push(str.substring(Math.floor(start), Math.floor(end)));
+        this.pc++;
+        break;
+      }
+
+      case Op.STR_CONCAT: {
+        // stack: [str1, str2] → [str1+str2]
+        this.need(2);
+        const str2 = this.stack.pop();
+        const str1 = this.stack.pop();
+        if (typeof str1 !== 'string' || typeof str2 !== 'string') {
+          throw new Error('not_string');
+        }
+        this.guardStack();
+        this.stack.push(str1 + str2);
+        this.pc++;
+        break;
+      }
+
+      case Op.STR_EQ: {
+        // stack: [str1, str2] → [bool]
+        this.need(2);
+        const str2 = this.stack.pop();
+        const str1 = this.stack.pop();
+        if (typeof str1 !== 'string' || typeof str2 !== 'string') {
+          throw new Error('not_string');
+        }
+        this.guardStack();
+        this.stack.push(str1 === str2 ? 1 : 0);
+        this.pc++;
+        break;
+      }
+
+      case Op.STR_NEQ: {
+        // stack: [str1, str2] → [bool]
+        this.need(2);
+        const str2 = this.stack.pop();
+        const str1 = this.stack.pop();
+        if (typeof str1 !== 'string' || typeof str2 !== 'string') {
+          throw new Error('not_string');
+        }
+        this.guardStack();
+        this.stack.push(str1 !== str2 ? 1 : 0);
+        this.pc++;
+        break;
+      }
+
+      case Op.CHAR_NEW:
+        // arg: char → push to stack
+        this.guardStack();
+        this.stack.push((arg as string).charAt(0) || '');
+        this.pc++;
+        break;
+
+      case Op.CHAR_CODE: {
+        // stack: [char] → [code]
+        this.need(1);
+        const char = this.stack[this.stack.length - 1];
+        if (typeof char !== 'string' || char.length === 0) {
+          throw new Error('not_char');
+        }
+        this.stack[this.stack.length - 1] = char.charCodeAt(0);
+        this.pc++;
+        break;
+      }
+
+      case Op.CHAR_FROM: {
+        // stack: [code] → [char]
+        this.need(1);
+        const code = this.stack[this.stack.length - 1] as number;
+        this.stack[this.stack.length - 1] = String.fromCharCode(Math.floor(code));
         this.pc++;
         break;
       }

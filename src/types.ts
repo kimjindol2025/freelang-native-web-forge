@@ -63,6 +63,20 @@ export enum Op {
   ITER_NEXT = 0x81,  // stack: [iterator] → [value, iterator]
   ITER_HAS  = 0x82,  // stack: [iterator] → [bool]
 
+  // String operations (Project Ouroboros)
+  STR_NEW   = 0x90,  // arg: string → push to stack
+  STR_LEN   = 0x91,  // stack: [str] → [length]
+  STR_AT    = 0x92,  // stack: [str, index] → [char]
+  STR_SUB   = 0x93,  // stack: [str, start, end] → [substr]
+  STR_CONCAT= 0x94,  // stack: [str1, str2] → [str1+str2]
+  STR_EQ    = 0x95,  // stack: [str1, str2] → [bool]
+  STR_NEQ   = 0x96,  // stack: [str1, str2] → [bool]
+
+  // Character operations
+  CHAR_NEW  = 0x97,  // arg: char → push to stack
+  CHAR_CODE = 0x98,  // stack: [char] → [code]
+  CHAR_FROM = 0x99,  // stack: [code] → [char]
+
   // Debug (AI reads structured output)
   DUMP      = 0xF0,
 }
