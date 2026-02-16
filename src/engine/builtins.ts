@@ -161,7 +161,7 @@ export const BUILTINS: Record<string, BuiltinSpec> = {
   // Override length for string (in addition to array)
   // Note: We'll handle both in the interpreter
   string_length: {
-    name: 'length',  // Will be resolved by context
+    name: 'string_length',
     params: [{ name: 'str', type: 'string' }],
     return_type: 'number',
     c_name: 'strlen',
