@@ -32,7 +32,7 @@ export interface PatternStats {
 
 export class PatternUpdater {
   private patternHistory: Map<string, PatternUpdate[]> = new Map();
-  private patternStats: Map<string, PatternStats> = new Map();
+  patternStats: Map<string, PatternStats> = new Map();  // Made public for compatibility methods
 
   /**
    * 피드백을 기반으로 패턴 업데이트
@@ -306,6 +306,175 @@ export class PatternUpdater {
   }
 
   /**
+   * 호환성: 패턴 초기화 (이전 API)
+   */
+  initializePattern(pattern: any): void {
+    const operation = pattern.id || pattern.operation || pattern.fnName;
+    if (operation) {
+      this.patternStats.set(operation, {
+        operation,
+        totalFeedback: 0,
+        approvalRate: 0.5,
+        rejectionRate: 0,
+        modificationRate: 0,
+        avgAccuracy: 0.5,
+        lastUpdated: Date.now(),
+      });
+    }
+  }
+
+  /**
+   * 호환성: 승인 기록 (이전 API)
+   */
+  recordApproval(operation: string, keyword?: string): void {
+    const stats = this.patternStats.get(operation);
+    if (!stats) {
+      this.patternStats.set(operation, {
+        operation,
+        totalFeedback: 1,
+        approvalRate: 0.9,
+        rejectionRate: 0,
+        modificationRate: 0,
+        avgAccuracy: 0.9,
+        lastUpdated: Date.now(),
+      });
+    } else {
+      stats.approvalRate = Math.min(1, stats.approvalRate + 0.05);
+      stats.totalFeedback++;
+    }
+  }
+
+  /**
+   * 호환성: 거부 기록 (이전 API)
+   */
+  recordRejection(operation: string): void {
+    const stats = this.patternStats.get(operation);
+    if (!stats) {
+      this.patternStats.set(operation, {
+        operation,
+        totalFeedback: 1,
+        approvalRate: 0,
+        rejectionRate: 0.9,
+        modificationRate: 0,
+        avgAccuracy: 0.1,
+        lastUpdated: Date.now(),
+      });
+    } else {
+      stats.rejectionRate = Math.min(1, stats.rejectionRate + 0.1);
+      stats.totalFeedback++;
+    }
+  }
+
+  /**
+   * 호환성: 수정 기록 (이전 API)
+   */
+  recordModification(operation: string, modification: any): void {
+    const stats = this.patternStats.get(operation);
+    if (!stats) {
+      this.patternStats.set(operation, {
+        operation,
+        totalFeedback: 1,
+        approvalRate: 0,
+        rejectionRate: 0,
+        modificationRate: 0.8,
+        avgAccuracy: 0.5,
+        lastUpdated: Date.now(),
+      });
+    } else {
+      stats.modificationRate = Math.min(1, stats.modificationRate + 0.05);
+      stats.totalFeedback++;
+    }
+  }
+
+  /**
+   * 호환성: 개선 필요 패턴 (Phase 7 API - 객체 배열 반환)
+   */
+  getNeedsImprovement(threshold: number = 0.7): any[] {
+    // Phase 7 호환: {id: string}[] 형태 반환
+    return this.getOperationsNeedingImprovement(threshold).map((id) => ({ id }));
+  }
+
+  /**
+   * 호환성: 신뢰도 추이 (이전 API)
+   * Dashboard/Phase 8 호환: avg_confidence 필드 포함
+   */
+  getTrend(operation: string, days: number): Array<any> {
+    const stats = this.patternStats.get(operation);
+    if (!stats) return [];
+    return [
+      {
+        date: new Date().toISOString().split('T')[0],
+        interactions: stats.totalFeedback,
+        avg_confidence: stats.approvalRate,  // Dashboard가 기대하는 필드명
+        confidence: stats.approvalRate,      // Phase 7이 기대하는 필드명
+      },
+    ];
+  }
+
+  /**
+   * 호환성: 인기 변형 (이전 API)
+   */
+  getPopularVariations(operation: string, count: number): Array<{ text: string; count: number }> {
+    const counts = variationCounts.get(operation);
+    if (!counts || counts.size === 0) return [];
+    return Array.from(counts.entries())
+      .map(([text, cnt]) => ({ text, count: cnt }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, count);
+  }
+
+  /**
+   * 호환성: 학습 점수 (이전 API)
+   */
+  getLearningScore(operation: string): number {
+    const stats = this.patternStats.get(operation);
+    return stats ? stats.approvalRate : 0;
+  }
+
+  /**
+   * 호환성: 패턴 조회 (이전 API)
+   */
+  get(operation: string): any {
+    const stats = this.patternStats.get(operation);
+    if (!stats) return null;
+    return {
+      id: operation,
+      original: {
+        confidence: stats.approvalRate,
+      },
+      total_interactions: stats.totalFeedback,
+      last_feedback: stats.lastUpdated,
+    };
+  }
+
+  /**
+   * 호환성: 모든 패턴 조회 (이전 API)
+   */
+  getAll(): any[] {
+    return Array.from(this.patternStats.values()).map((stats) => ({
+      id: stats.operation,
+      original: {
+        confidence: stats.approvalRate,
+      },
+      total_interactions: stats.totalFeedback,
+    }));
+  }
+
+  /**
+   * 호환성: 패턴 통계 (이전 API)
+   */
+  getStats(operation: string): any {
+    return this.patternStats.get(operation) || null;
+  }
+
+  /**
+   * 호환성: 모든 패턴 통계 (이전 API)
+   */
+  getAllStats(): any[] {
+    return Array.from(this.patternStats.values());
+  }
+
+  /**
    * 개선이 필요한 Operation 식별
    */
   getOperationsNeedingImprovement(
@@ -355,3 +524,194 @@ export class PatternUpdater {
     return summary;
   }
 }
+
+// ============================================================================
+// 호환성 확장: Phase 7 테스트 지원 (기존 API)
+// ============================================================================
+
+// Phase 7에서 기대하는 패턴 포맷
+interface LegacyPattern {
+  id: string;
+  original: {
+    description: string;
+    confidence: number;
+  };
+  feedback: {
+    approved: number;
+    rejected: number;
+    modified: number;
+  };
+  variations: Array<{ text: string; count: number }>;
+}
+
+// 내부 패턴 저장소 (호환성)
+const legacyPatterns = new Map<string, LegacyPattern>();
+const variationCounts = new Map<string, Map<string, number>>();
+
+/**
+ * 호환성: 패턴 조회 (Phase 7 API)
+ */
+PatternUpdater.prototype.get = function(operation: string): LegacyPattern | null {
+  return legacyPatterns.get(operation) || null;
+};
+
+/**
+ * 호환성: 패턴 초기화 (Phase 7 API)
+ */
+PatternUpdater.prototype.initializePattern = function(pattern: any): void {
+  const operation = pattern.id || pattern.operation || pattern.fnName;
+  if (!operation) return;
+
+  const variations = (pattern.examples || []).map((text: string) => ({
+    text,
+    count: 0,
+  }));
+
+  legacyPatterns.set(operation, {
+    id: operation,
+    original: {
+      description: pattern.description || pattern.pattern || '',
+      confidence: pattern.confidence || 0.5,
+    },
+    feedback: {
+      approved: 0,
+      rejected: 0,
+      modified: 0,
+    },
+    variations,
+  });
+
+  // 호환성: 통계에도 초기화
+  const stats = this.patternStats.get(operation);
+  if (!stats) {
+    this.patternStats.set(operation, {
+      operation,
+      totalFeedback: 0,
+      approvalRate: pattern.confidence || 0.5,
+      rejectionRate: 0,
+      modificationRate: 0,
+      avgAccuracy: pattern.confidence || 0.5,
+      lastUpdated: Date.now(),
+    });
+  }
+};
+
+/**
+ * 호환성: 승인 기록 (Phase 7 API)
+ */
+PatternUpdater.prototype.recordApproval = function(
+  operation: string,
+  keyword?: string
+): void {
+  // 호환성 패턴 업데이트
+  let pattern = legacyPatterns.get(operation);
+  if (!pattern) {
+    pattern = {
+      id: operation,
+      original: { description: '', confidence: 0.5 },
+      feedback: { approved: 0, rejected: 0, modified: 0 },
+      variations: [],
+    };
+    legacyPatterns.set(operation, pattern);
+  }
+  pattern.feedback.approved++;
+  pattern.original.confidence = Math.min(1, pattern.original.confidence + 0.02);
+
+  // 변형 카운트
+  if (keyword) {
+    if (!variationCounts.has(operation)) {
+      variationCounts.set(operation, new Map());
+    }
+    const counts = variationCounts.get(operation)!;
+    counts.set(keyword, (counts.get(keyword) || 0) + 1);
+  }
+
+  // 기본 PatternUpdater 통계도 업데이트
+  const stats = this.patternStats.get(operation);
+  if (!stats) {
+    this.patternStats.set(operation, {
+      operation,
+      totalFeedback: 1,
+      approvalRate: 0.9,
+      rejectionRate: 0,
+      modificationRate: 0,
+      avgAccuracy: 0.9,
+      lastUpdated: Date.now(),
+    });
+  } else {
+    stats.approvalRate = Math.min(1, stats.approvalRate + 0.05);
+    stats.totalFeedback++;
+  }
+};
+
+/**
+ * 호환성: 거부 기록 (Phase 7 API)
+ */
+PatternUpdater.prototype.recordRejection = function(operation: string): void {
+  let pattern = legacyPatterns.get(operation);
+  if (!pattern) {
+    pattern = {
+      id: operation,
+      original: { description: '', confidence: 0.5 },
+      feedback: { approved: 0, rejected: 0, modified: 0 },
+      variations: [],
+    };
+    legacyPatterns.set(operation, pattern);
+  }
+  pattern.feedback.rejected++;
+
+  const stats = this.patternStats.get(operation);
+  if (!stats) {
+    this.patternStats.set(operation, {
+      operation,
+      totalFeedback: 1,
+      approvalRate: 0,
+      rejectionRate: 0.9,
+      modificationRate: 0,
+      avgAccuracy: 0.1,
+      lastUpdated: Date.now(),
+    });
+  } else {
+    stats.rejectionRate = Math.min(1, stats.rejectionRate + 0.1);
+    stats.totalFeedback++;
+  }
+};
+
+/**
+ * 호환성: 수정 기록 (Phase 7 API)
+ */
+PatternUpdater.prototype.recordModification = function(
+  operation: string,
+  modification: any
+): void {
+  let pattern = legacyPatterns.get(operation);
+  if (!pattern) {
+    pattern = {
+      id: operation,
+      original: { description: '', confidence: 0.5 },
+      feedback: { approved: 0, rejected: 0, modified: 0 },
+      variations: [],
+    };
+    legacyPatterns.set(operation, pattern);
+  }
+  pattern.feedback.modified++;
+
+  const stats = this.patternStats.get(operation);
+  if (!stats) {
+    this.patternStats.set(operation, {
+      operation,
+      totalFeedback: 1,
+      approvalRate: 0,
+      rejectionRate: 0,
+      modificationRate: 0.8,
+      avgAccuracy: 0.5,
+      lastUpdated: Date.now(),
+    });
+  } else {
+    stats.modificationRate = Math.min(1, stats.modificationRate + 0.05);
+    stats.totalFeedback++;
+  }
+};
+
+// 싱글톤 인스턴스
+export const patternUpdater = new PatternUpdater();
