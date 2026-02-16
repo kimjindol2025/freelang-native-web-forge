@@ -100,6 +100,14 @@ export class TypeInferenceEngine {
             confidence: 0.8,
             source: 'inferred',
           });
+        } else {
+          // FIXED: Even if type inference failed, still record with lower confidence
+          inferred.push({
+            name: varName,
+            type: 'any',  // Unknown type
+            confidence: 0.3,  // Low confidence for unknown
+            source: 'inferred',
+          });
         }
       }
 
@@ -354,9 +362,38 @@ export class TypeInferenceEngine {
       return 'any';
     }
 
-    // Arithmetic: - * / % are only for numbers
-    if (/[\-*/%]/.test(expr) && !expr.includes('.')) {
-      return 'number';
+    // FIXED: Arithmetic operators (- * / %) should only return 'number' for clear numeric expressions
+    // NOT for variable operations like "a - b" or "data * 2"
+    if (/[\*/%]/.test(expr) && !expr.includes('.')) {
+      // *, /, % are more reliably numeric operations
+      // Check if expression contains only number literals
+      const withoutOps = expr.replace(/[\*/%()]/g, ' ').trim();
+      const tokens = withoutOps.split(/\s+/).filter(t => t !== '');
+      const allNumeric = tokens.every(t => /^\d+(\.\d+)?$/.test(t));
+
+      if (allNumeric && tokens.length > 0) {
+        return 'number';
+      }
+      // If variables involved, we can't be sure
+      return 'any';
+    }
+
+    // For minus (-), be more careful (could be negative number or subtraction)
+    if (expr.includes('-') && !expr.includes('.')) {
+      // Check if it's a negative number at the start
+      if (/^-\d+(\.\d+)?$/.test(expr.trim())) {
+        return 'number';
+      }
+      // Check if it's subtraction of two numbers
+      const parts = expr.split('-').map(s => s.trim()).filter(s => s !== '');
+      if (parts.length >= 2) {
+        const allNumeric = parts.every(t => /^\d+(\.\d+)?$/.test(t));
+        if (allNumeric) {
+          return 'number';
+        }
+      }
+      // Otherwise uncertain
+      return 'any';
     }
 
     // 5. Check comparison/logical operations (before defaults)
