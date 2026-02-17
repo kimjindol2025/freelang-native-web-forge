@@ -1,7 +1,7 @@
 {
   "name": "v2-freelang-ai",
-  "version": "2.0.0",
-  "description": "FreeLang v2: AI-First Programming Language - Self-Correcting + Intent-Driven + No Dependencies",
+  "version": "2.1.0",
+  "description": "FreeLang v2.1.0: AI-First Programming Language - Self-Correcting + Intent-Driven + Production Ready",
   "main": "dist/cli/index.js",
   "types": "dist/cli/index.d.ts",
   "scripts": {
@@ -57,7 +57,7 @@
     "tags": ["ai", "code-generation", "c-backend", "freelang", "intent-parser", "self-correcting"],
     "entry": "dist/cli/index.js",
     "cli": true,
-    "version": "2.0.0",
+    "version": "2.1.0",
     "dependencies": [],
     "exports": {
       "cli": "./dist/cli/index.js",
