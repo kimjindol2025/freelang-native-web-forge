@@ -69,19 +69,24 @@ export class RealtimeDashboardServer {
   private updateIntervalMs: number = 10000; // 10초마다 확인
   private batcher: MessageBatcher; // Phase 15 Day 1: 메시지 배칭
   private compressor: CompressionLayer; // Phase 15 Day 2: gzip 압축
+  private deltaEncoder: DeltaEncoder; // Phase 15 Day 2: Delta 인코딩
+  private useDelta: boolean = true;
 
   constructor(
     port: number = 8000,
     dashboard: Dashboard,
     patterns: IntentPattern[] = [],
     useBatching: boolean = true,
-    useCompression: boolean = true
+    useCompression: boolean = true,
+    useDelta: boolean = true
   ) {
     this.port = port;
     this.dashboard = dashboard;
+    this.useDelta = useDelta;
     this.patterns = patterns;
     this.batcher = new MessageBatcher(10000); // 10초 배치 윈도우
     this.compressor = new CompressionLayer(200, 6, useCompression); // 200 bytes threshold
+    this.deltaEncoder = new DeltaEncoder(); // Phase 15 Day 2: Delta 인코딩
 
     // 배칭 활성화 시 콜백 설정
     if (useBatching) {
@@ -322,14 +327,33 @@ export class RealtimeDashboardServer {
 
   /**
    * Phase 15: 단일 메시지 전송 (배칭을 거치지 않음)
+   * Phase 15 Day 2: Delta 인코딩 적용
    */
   private sendBatchedMessage(message: BatchedMessage): void {
     let successCount = 0;
 
     this.clients.forEach((client) => {
       try {
+        let messageToSend: any = message;
+
+        // Phase 15 Day 2: Delta 인코딩 적용
+        if (this.useDelta && message.data && typeof message.data === 'object') {
+          const delta = this.deltaEncoder.computeDelta(`msg-${message.type}`, message.data);
+          messageToSend = {
+            type: message.type,
+            timestamp: message.timestamp,
+            error: message.error,
+            data: delta.changes,
+            _delta: {
+              type: delta.type,
+              compressionRatio: delta.compressionRatio,
+              bandwidthSaved: delta.originalSize - delta.deltaSize
+            }
+          };
+        }
+
         const event = `event: ${message.type}\n`;
-        const data = `data: ${JSON.stringify(message)}\n\n`;
+        const data = `data: ${JSON.stringify(messageToSend)}\n\n`;
         client.res.write(event + data);
         successCount++;
       } catch (error) {
@@ -340,21 +364,42 @@ export class RealtimeDashboardServer {
 
     if (successCount > 0) {
       if (process.env.NODE_ENV !== 'test') {
-        console.log(`📡 Direct: ${message.type} to ${successCount}/${this.clients.size} clients`);
+        const deltaStats = this.useDelta ? this.deltaEncoder.getStats() : null;
+        const statsStr = deltaStats ? ` (Delta: ${deltaStats.compressionRatio.toFixed(1)}x)` : '';
+        console.log(`📡 Direct: ${message.type} to ${successCount}/${this.clients.size} clients${statsStr}`);
       }
     }
   }
 
   /**
    * Phase 15: 배치 메시지 전송 (여러 메시지 묶음)
+   * Phase 15 Day 2: Delta 인코딩 적용
    */
   private broadcastBatch(batch: any): void {
     let successCount = 0;
 
     this.clients.forEach((client) => {
       try {
+        let batchToSend: any = batch;
+
+        // Phase 15 Day 2: Delta 인코딩 적용
+        if (this.useDelta && batch && typeof batch === 'object') {
+          const delta = this.deltaEncoder.computeDelta('batch', batch);
+          batchToSend = {
+            type: 'batch',
+            timestamp: batch.timestamp,
+            count: batch.count,
+            messages: delta.type === 'full' ? batch.messages : delta.changes.messages,
+            _delta: {
+              type: delta.type,
+              compressionRatio: delta.compressionRatio,
+              bandwidthSaved: delta.originalSize - delta.deltaSize
+            }
+          };
+        }
+
         const event = `event: batch\n`;
-        const data = `data: ${JSON.stringify(batch)}\n\n`;
+        const data = `data: ${JSON.stringify(batchToSend)}\n\n`;
         client.res.write(event + data);
         successCount++;
       } catch (error) {
@@ -364,9 +409,11 @@ export class RealtimeDashboardServer {
     });
 
     if (successCount > 0) {
-      const stats = this.batcher.getStats();
+      const batcherStats = this.batcher.getStats();
+      const deltaStats = this.useDelta ? this.deltaEncoder.getStats() : null;
       if (process.env.NODE_ENV !== 'test') {
-        console.log(`📦 Batch: ${batch.count} messages to ${successCount}/${this.clients.size} clients (saved: ${stats.bandwidthSaved} bytes)`);
+        const deltaStr = deltaStats ? ` + Delta: ${deltaStats.compressionRatio.toFixed(1)}x` : '';
+        console.log(`📦 Batch: ${batch.count} messages to ${successCount}/${this.clients.size} clients (Batch saved: ${batcherStats.bandwidthSaved} bytes${deltaStr})`);
       }
     }
   }
