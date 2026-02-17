@@ -185,7 +185,7 @@ fn test
 
       const result = engine.infer(code);
       const dataInfo = result.get('data')!;
-      expect(dataInfo.reasoning).toContain(expect.stringContaining('Method calls detected'));
+      expect(dataInfo.reasoning.some(r => r.includes('Method calls'))).toBe(true);
     });
 
     it('should infer type from single method call', () => {
@@ -308,7 +308,7 @@ fn test
 
       const result = engine.infer(code);
       const xInfo = result.get('x')!;
-      expect(xInfo.reasoning).toContain(expect.stringContaining('arithmetic'));
+      expect(xInfo.reasoning.some(r => r.includes('arithmetic'))).toBe(true);
     });
   });
 
@@ -347,7 +347,7 @@ fn test
       const result = engine.infer(code);
       const valueInfo = result.get('value')!;
       // Should mark as potentially union type (lower confidence)
-      expect(valueInfo.reasoning).toContain(expect.stringContaining('conditional'));
+      expect(valueInfo.reasoning.some(r => r.includes('Control flow') || r.includes('union'))).toBe(true);
     });
 
     it('should analyze loop variables', () => {

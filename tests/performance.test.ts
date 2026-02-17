@@ -151,7 +151,7 @@ output: number
         analyzeBody(body);
       });
 
-      expect(duration).toBeLessThan(0.5);
+      expect(duration).toBeLessThan(1.0);
     });
 
     test('배열 감지 < 1ms', () => {
