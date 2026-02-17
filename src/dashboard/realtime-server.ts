@@ -152,10 +152,12 @@ export class RealtimeDashboardServer {
 
         // 서버 시작
         this.httpServer.listen(this.port, () => {
-          console.log(`✅ Realtime Dashboard Server (SSE) listening on port ${this.port}`);
-          console.log(`   - HTTP:  http://localhost:${this.port}`);
-          console.log(`   - SSE:   http://localhost:${this.port}/api/realtime/stream`);
-          console.log(`   - Health: http://localhost:${this.port}/health`);
+          if (process.env.NODE_ENV !== 'test') {
+            console.log(`✅ Realtime Dashboard Server (SSE) listening on port ${this.port}`);
+            console.log(`   - HTTP:  http://localhost:${this.port}`);
+            console.log(`   - SSE:   http://localhost:${this.port}/api/realtime/stream`);
+            console.log(`   - Health: http://localhost:${this.port}/health`);
+          }
           resolve();
         });
 
@@ -191,7 +193,9 @@ export class RealtimeDashboardServer {
     };
     this.clients.set(clientId, client);
 
-    console.log(`✅ SSE client connected: ${clientId} (total: ${this.clients.size})`);
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`✅ SSE client connected: ${clientId} (total: ${this.clients.size})`);
+    }
 
     // 초기 데이터 전송
     try {
@@ -209,7 +213,9 @@ export class RealtimeDashboardServer {
     // 클라이언트 연결 종료 처리
     req.on('close', () => {
       this.clients.delete(clientId);
-      console.log(`❌ SSE client disconnected: ${clientId} (remaining: ${this.clients.size})`);
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(`❌ SSE client disconnected: ${clientId} (remaining: ${this.clients.size})`);
+      }
     });
 
     req.on('error', (error) => {
@@ -332,7 +338,9 @@ export class RealtimeDashboardServer {
     });
 
     if (successCount > 0) {
-      console.log(`📡 Direct: ${message.type} to ${successCount}/${this.clients.size} clients`);
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(`📡 Direct: ${message.type} to ${successCount}/${this.clients.size} clients`);
+      }
     }
   }
 
@@ -356,7 +364,9 @@ export class RealtimeDashboardServer {
 
     if (successCount > 0) {
       const stats = this.batcher.getStats();
-      console.log(`📦 Batch: ${batch.count} messages to ${successCount}/${this.clients.size} clients (saved: ${stats.bandwidthSaved} bytes)`);
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(`📦 Batch: ${batch.count} messages to ${successCount}/${this.clients.size} clients (saved: ${stats.bandwidthSaved} bytes)`);
+      }
     }
   }
 

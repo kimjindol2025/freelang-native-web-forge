@@ -2,7 +2,7 @@
 
 > **AI를 위한 문법 자유도를 제공하는 현대적 언어 파서**
 
-[![Tests](https://img.shields.io/badge/tests-327%2F327%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-3517%2F3521%20passing-brightgreen)]()
 [![TypeScript](https://img.shields.io/badge/typescript-5.3-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 

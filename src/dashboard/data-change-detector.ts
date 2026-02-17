@@ -79,10 +79,21 @@ export class DataChangeDetector {
   detectNumericChange(fieldName: string, newValue: number, threshold: number = 0.01): boolean {
     const prevValue = this.lastNumericValue(fieldName);
 
-    if (prevValue === null) return true; // 첫 값
+    if (prevValue === null) {
+      // 첫 값 저장
+      this.lastHash.set(fieldName, newValue.toString());
+      return true;
+    }
 
     const change = Math.abs(newValue - prevValue);
-    return change > threshold;
+    const hasChanged = change > threshold;
+
+    // 변경되면 새 값 저장
+    if (hasChanged) {
+      this.lastHash.set(fieldName, newValue.toString());
+    }
+
+    return hasChanged;
   }
 
   /**
