@@ -25,9 +25,11 @@ coverage/
 *.c
 *.h
 
-# But keep FFI source files (Phase 16+)
+# But keep stdlib source files (Phase 26+)
 !stdlib/ffi/*.c
 !stdlib/ffi/*.h
+!stdlib/core/*.c
+!stdlib/core/*.h
 
 # Temporary
 .tmp/
