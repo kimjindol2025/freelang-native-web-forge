@@ -222,8 +222,8 @@ describe('Phase 16 Week 3-4: Full Integration Tests', () => {
           }
           // Success on 3rd attempt
           return; // Test passes
-        } catch (e) {
-          lastError = e.message;
+        } catch (e: unknown) {
+          lastError = (e as Error).message;
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
@@ -557,7 +557,7 @@ describe('Phase 16 Week 3-4: Full Integration Tests', () => {
       fs.writeFileSync(inputFile, 'raw data 12345');
 
       // Step 2: Read file (async simulation)
-      const inputData = await new Promise((resolve) => {
+      const inputData = await new Promise<string>((resolve) => {
         setTimeout(() => {
           const content = fs.readFileSync(inputFile, 'utf-8');
           resolve(content);
@@ -565,15 +565,15 @@ describe('Phase 16 Week 3-4: Full Integration Tests', () => {
       });
 
       // Step 3: Process data (async simulation)
-      const processed = await new Promise((resolve) => {
+      const processed = await new Promise<string>((resolve) => {
         setTimeout(() => {
-          const result = inputData.toUpperCase();
+          const result = (inputData as string).toUpperCase();
           resolve(result);
         }, 100);
       });
 
       // Step 4: Write output (send)
-      fs.writeFileSync(outputFile, processed);
+      fs.writeFileSync(outputFile, processed as string);
 
       // Step 5: Log workflow
       fs.appendFileSync(logFile, `Processed: ${processed}\n`);
