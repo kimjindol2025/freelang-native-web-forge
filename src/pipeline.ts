@@ -9,6 +9,7 @@ import { Compiler } from './compiler';
 import { Corrector, CorrectionResult } from './correction';
 import { Learner } from './learner';
 import { OptimizationDetector, OptimizationSuggestion } from './analyzer/optimization-detector';
+import { OptimizationApplier, OptimizationDecision } from './analyzer/optimization-applier';
 
 export interface PipelineInput {
   instruction: string;        // free-form input: "sum array", "filter > 5", etc
@@ -23,6 +24,8 @@ export interface PipelineOutput {
   compile?: { ok: boolean; c_code?: string };
   final_value?: unknown;            // Can be number, array, iterator, boolean, etc.
   optimizations?: OptimizationSuggestion[]; // AI-detected optimization opportunities
+  optimization_decisions?: OptimizationDecision[]; // AI decisions on applying optimizations
+  optimization_summary?: string;    // Human-readable optimization report
 }
 
 export class Pipeline {
@@ -33,6 +36,7 @@ export class Pipeline {
   private corrector: Corrector;
   private learner: Learner;
   private optimizer: OptimizationDetector;
+  private applier: OptimizationApplier;
 
   constructor(outDir?: string) {
     this.engine = new AutoHeaderEngine();
@@ -42,6 +46,7 @@ export class Pipeline {
     this.corrector = new Corrector();
     this.learner = new Learner();
     this.optimizer = new OptimizationDetector();
+    this.applier = new OptimizationApplier();
   }
 
   /**
@@ -72,8 +77,22 @@ export class Pipeline {
     // Detect potential optimizations in the generated IR
     const optimizations = this.optimizer.detectOptimizations(intent.body);
 
-    // Step 3: Execute on VM
-    let vmResult = this.vm.run(intent.body);
+    // Step 2.6: 🤖 AUTOMATIC OPTIMIZATION DECISION (AI-First)
+    // Decide which optimizations to apply based on 5-factor scoring
+    const decisions = this.applier.decideAll(optimizations);
+
+    // Step 2.75: 🤖 AUTOMATIC OPTIMIZATION APPLICATION (AI-First)
+    // Apply approved optimizations to the IR
+    let appliedOptimizations = intent.body;
+    let optimizationSummary = '';
+    if (decisions.length > 0 && decisions.some(d => d.shouldApply)) {
+      const applyResult = this.applier.applyOptimizations(intent.body, decisions);
+      appliedOptimizations = applyResult.optimized;
+      optimizationSummary = this.applier.summarize(decisions);
+    }
+
+    // Step 3: Execute on VM (with optimized IR)
+    let vmResult = this.vm.run(appliedOptimizations);
 
     // Step 4: Self-correct if failed
     let correction: CorrectionResult | undefined;
@@ -100,6 +119,8 @@ export class Pipeline {
       compile: compileResult,
       final_value: vmResult.value,
       optimizations: optimizations.length > 0 ? optimizations : undefined,
+      optimization_decisions: decisions.length > 0 ? decisions : undefined,
+      optimization_summary: optimizationSummary || undefined,
     };
   }
 
