@@ -12,6 +12,10 @@
 
 import { structManager, StructDefinition } from '../phase-8/struct-system';
 import { indexManager } from '../phase-8/indexing-system';
+import { HTTPServer, HTTPClient, SimpleRouter } from '../phase-9/http-server';
+import { AsyncUtils, Spawn, AsyncChain } from '../phase-9/async-concurrency';
+import { MemoryMonitor, PerformanceProfiler } from '../phase-9/memory-monitor';
+import { WebProxy, LoadBalancer } from '../phase-9/web-proxy';
 
 /**
  * 내부 실행 결과
@@ -426,6 +430,212 @@ export class SmartREPL {
         get_index_stats: (structName: string, fieldName: string) => {
           try {
             return indexManager.getStats(structName, fieldName);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        // ==================== HTTP & 프록시 함수 (Phase 9) ====================
+        create_server: (port: number) => {
+          try {
+            const server = new HTTPServer(port);
+            (this.context.variables as Map<string, any>).set(`__server_${port}`, server);
+            return { success: true, message: `Server created on port ${port}` };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        start_server: async (port: number) => {
+          try {
+            const server = (this.context.variables as Map<string, any>).get(`__server_${port}`);
+            if (!server) throw new Error(`Server on port ${port} not found`);
+            await server.start();
+            return { success: true, message: 'Server started' };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        register_route: (port: number, path: string, handler: (req: any) => any) => {
+          try {
+            const server = (this.context.variables as Map<string, any>).get(`__server_${port}`);
+            if (!server) throw new Error(`Server on port ${port} not found`);
+            server.route(path, handler);
+            return { success: true, message: `Route ${path} registered` };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        http_get: async (url: string) => {
+          try {
+            return await HTTPClient.get(url);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        http_post: async (url: string, body: string) => {
+          try {
+            return await HTTPClient.post(url, body);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        http_json_get: async (url: string) => {
+          try {
+            return await HTTPClient.getJSON(url);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        // ==================== 비동기 & 병렬 함수 (Phase 9) ====================
+        async_delay: (ms: number) => {
+          return AsyncUtils.delay(ms);
+        },
+
+        async_retry: async (fn: () => Promise<any>, maxRetries: number = 3) => {
+          try {
+            return await AsyncUtils.retry(fn, maxRetries, 1000);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        spawn_task: async (fn: () => Promise<any>) => {
+          return Spawn.run(fn);
+        },
+
+        spawn_parallel: async (tasks: Array<() => Promise<any>>, concurrency: number = 5) => {
+          return Spawn.runMany(tasks, concurrency);
+        },
+
+        spawn_map: async (
+          items: any[],
+          fn: (item: any) => Promise<any>,
+          concurrency: number = 5
+        ) => {
+          return Spawn.map(items, fn, concurrency);
+        },
+
+        async_timeout: async (promise: Promise<any>, ms: number) => {
+          try {
+            return await AsyncUtils.withTimeout(promise, ms);
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        // ==================== 메모리 & 성능 함수 (Phase 9) ====================
+        memory_usage: () => {
+          const usage = MemoryMonitor.getMemoryUsage();
+          return {
+            rss: MemoryMonitor.formatBytes(usage.rss),
+            heapTotal: MemoryMonitor.formatBytes(usage.heapTotal),
+            heapUsed: MemoryMonitor.formatBytes(usage.heapUsed),
+            external: MemoryMonitor.formatBytes(usage.external),
+          };
+        },
+
+        memory_report: () => {
+          return MemoryMonitor.getReport();
+        },
+
+        memory_formatted: () => {
+          const usage = MemoryMonitor.getMemoryUsage();
+          return {
+            rss: MemoryMonitor.formatBytes(usage.rss),
+            heap: `${(usage.heapUsed / 1024 / 1024).toFixed(2)} MB / ${(usage.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+            percent: `${((usage.heapUsed / usage.heapTotal) * 100).toFixed(1)}%`,
+          };
+        },
+
+        performance_start: (label: string) => {
+          const profiler = (this.context.variables as Map<string, any>).get('__profiler') || new PerformanceProfiler();
+          (this.context.variables as Map<string, any>).set('__profiler', profiler);
+          profiler.start(label);
+          return { success: true };
+        },
+
+        performance_end: (label: string) => {
+          const profiler = (this.context.variables as Map<string, any>).get('__profiler');
+          if (!profiler) return { success: false, error: 'Profiler not initialized' };
+          const duration = profiler.end(label);
+          return { duration: `${duration.toFixed(2)}ms` };
+        },
+
+        performance_stats: (label: string) => {
+          const profiler = (this.context.variables as Map<string, any>).get('__profiler');
+          if (!profiler) return null;
+          return profiler.getStats(label);
+        },
+
+        // ==================== 웹 프록시 함수 (Phase 9) ====================
+        create_proxy: (port: number, targets: string[]) => {
+          try {
+            const proxy = new WebProxy({
+              port,
+              targets,
+              cacheEnabled: true,
+              cacheTTL: 60000,
+              timeout: 5000,
+              maxRetries: 3,
+            });
+            (this.context.variables as Map<string, any>).set(`__proxy_${port}`, proxy);
+            return { success: true, message: `Proxy created on port ${port}` };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        start_proxy: async (port: number) => {
+          try {
+            const proxy = (this.context.variables as Map<string, any>).get(`__proxy_${port}`);
+            if (!proxy) throw new Error(`Proxy on port ${port} not found`);
+            await proxy.start();
+            return { success: true, message: 'Proxy started' };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        proxy_stats: (port: number) => {
+          try {
+            const proxy = (this.context.variables as Map<string, any>).get(`__proxy_${port}`);
+            if (!proxy) throw new Error(`Proxy on port ${port} not found`);
+            return proxy.getStats();
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        create_router: () => {
+          const router = new SimpleRouter();
+          const routerId = `__router_${Date.now()}`;
+          (this.context.variables as Map<string, any>).set(routerId, router);
+          return { success: true, routerId };
+        },
+
+        router_get: (routerId: string, path: string, handler: (req: any) => any) => {
+          try {
+            const router = (this.context.variables as Map<string, any>).get(routerId);
+            if (!router) throw new Error('Router not found');
+            router.get(path, handler);
+            return { success: true };
+          } catch (error) {
+            return { success: false, error: String(error) };
+          }
+        },
+
+        router_post: (routerId: string, path: string, handler: (req: any) => any) => {
+          try {
+            const router = (this.context.variables as Map<string, any>).get(routerId);
+            if (!router) throw new Error('Router not found');
+            router.post(path, handler);
+            return { success: true };
           } catch (error) {
             return { success: false, error: String(error) };
           }
