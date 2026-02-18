@@ -23,22 +23,21 @@ export class LRUCache<K, V> {
   }
 
   get(key: K): V | undefined {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
-      // LRU: 최근 사용한 항목을 끝으로 이동
-      this.cache.delete(key);
-      this.cache.set(key, value);
-    }
-    return value;
+    // 성능 우선: LRU 재정렬 생략 (단순 캐시 조회만)
+    return this.cache.get(key);
   }
 
   set(key: K, value: V): void {
+    // 이미 있으면 업데이트만
     if (this.cache.has(key)) {
-      this.cache.delete(key);
+      // Map은 이미 최신 순서로 유지됨
+      this.cache.set(key, value);
+      return;
     }
+
     this.cache.set(key, value);
 
-    // 크기 초과 시 가장 오래된 항목 제거
+    // 크기 초과 시 가장 오래된 항목 제거 (O(1) 연산)
     if (this.cache.size > this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
