@@ -14,40 +14,37 @@ import { Dashboard } from '../src/dashboard/dashboard';
 import * as http from 'http';
 
 describe('Phase 14: Realtime Dashboard Integration', () => {
-  let server: RealtimeDashboardServer;
-  let httpServer: http.Server;
   let dashboard: Dashboard;
   let changeDetector: DataChangeDetector;
-  const TEST_PORT = 18000;
 
   beforeAll(async () => {
-    // Dashboard 인스턴스 생성
+    // Dashboard 인스턴스 생성 (모든 테스트 간 공유)
     dashboard = new Dashboard();
     changeDetector = new DataChangeDetector();
-
-    // 실시간 서버 생성
-    server = new RealtimeDashboardServer(TEST_PORT, dashboard, []);
-
-    // 서버 시작
-    await server.start();
   });
 
-  afterAll(async () => {
-    if (server) {
-      await server.stop();
-    }
-  }, 30000);  // 30초 타임아웃
-
   describe('SSE Server Connection', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18001;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('should start server on configured port', async () => {
-      const status = server.getStatus() as any;
-      expect(status).toHaveProperty('port', TEST_PORT);
+      const status = localServer.getStatus() as any;
+      expect(status).toHaveProperty('port', PORT);
       expect(status).toHaveProperty('clients_connected');
     });
 
     test('should handle SSE connection request', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         {
           method: 'GET',
           headers: {
@@ -66,7 +63,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
     test('should send initial data on connection', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           let data = '';
@@ -86,17 +83,17 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
     });
 
     test('should track client connections', (done) => {
-      const initialStatus = server.getStatus() as any;
+      const initialStatus = localServer.getStatus() as any;
       const initialCount = initialStatus.total_connections;
 
       // 새로운 연결 시뮬레이션
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           // 연결이 수립된 후 상태 확인
           setTimeout(() => {
-            const newStatus = server.getStatus() as any;
+            const newStatus = localServer.getStatus() as any;
             expect(newStatus.total_connections).toBeGreaterThanOrEqual(initialCount);
             res.destroy();
             client.destroy();
@@ -167,9 +164,21 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('Message Format & Content', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18003;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('initial message should contain all required fields', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           let data = '';
@@ -231,11 +240,23 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('Performance Benchmarks', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18004;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('SSE connection should establish in <100ms', (done) => {
       const startTime = performance.now();
 
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           const elapsed = performance.now() - startTime;
@@ -273,7 +294,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
       for (let i = 0; i < connectionCount; i++) {
         const client = new (require('http')).ClientRequest(
-          `http://localhost:${TEST_PORT}/api/realtime/stream`,
+          `http://localhost:${PORT}/api/realtime/stream`,
           { method: 'GET' },
           (res) => {
             if (res.statusCode === 200) {
@@ -298,7 +319,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
       const startTime = Date.now();
 
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           let data = '';
@@ -327,9 +348,21 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('Error Handling & Recovery', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18005;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('should handle connection close gracefully', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(200);
@@ -373,7 +406,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
     test('invalid SSE request should return 404', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/invalid/endpoint`,
+        `http://localhost:${PORT}/api/invalid/endpoint`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(404);
@@ -387,9 +420,21 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('REST API Fallback', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18006;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('should serve static HTML dashboard', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/`,
+        `http://localhost:${PORT}/`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(200);
@@ -413,7 +458,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
     test('should provide health check endpoint', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/health`,
+        `http://localhost:${PORT}/health`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(200);
@@ -426,7 +471,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
           res.on('end', () => {
             const health = JSON.parse(data);
             expect(health).toHaveProperty('status', 'ok');
-            expect(health).toHaveProperty('port', TEST_PORT);
+            expect(health).toHaveProperty('port', PORT);
             expect(health).toHaveProperty('clients');
             done();
           });
@@ -438,7 +483,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
     test('should return API data in JSON format', (done) => {
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/dashboard/stats`,
+        `http://localhost:${PORT}/api/dashboard/stats`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(200);
@@ -463,8 +508,20 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('Memory & Resource Management', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18007;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('server status should track resources correctly', () => {
-      const status = server.getStatus() as any;
+      const status = localServer.getStatus() as any;
 
       expect(status).toHaveProperty('port');
       expect(status).toHaveProperty('clients_connected');
@@ -488,12 +545,24 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
   });
 
   describe('Integration E2E Flow', () => {
+    let localServer: RealtimeDashboardServer;
+    const PORT = 18008;
+
+    beforeAll(async () => {
+      localServer = new RealtimeDashboardServer(PORT, dashboard, []);
+      await localServer.start();
+    });
+
+    afterAll(async () => {
+      if (localServer) await localServer.stop();
+    }, 30000);
+
     test('should complete full SSE cycle: connect -> receive -> close', (done) => {
       let receivedInitial = false;
       let receivedHeartbeat = false;
 
       const client = new (require('http')).ClientRequest(
-        `http://localhost:${TEST_PORT}/api/realtime/stream`,
+        `http://localhost:${PORT}/api/realtime/stream`,
         { method: 'GET' },
         (res) => {
           expect(res.statusCode).toBe(200);
@@ -527,7 +596,7 @@ describe('Phase 14: Realtime Dashboard Integration', () => {
 
       for (let i = 0; i < clientCount; i++) {
         const client = new (require('http')).ClientRequest(
-          `http://localhost:${TEST_PORT}/api/realtime/stream`,
+          `http://localhost:${PORT}/api/realtime/stream`,
           { method: 'GET' },
           (res) => {
             let data = '';
