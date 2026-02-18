@@ -77,6 +77,11 @@ export enum Op {
   CHAR_CODE = 0x98,  // stack: [char] → [code]
   CHAR_FROM = 0x99,  // stack: [code] → [char]
 
+  // Phase 3 Step 3: Lambda & Closure operations
+  LAMBDA_NEW      = 0xA0,  // Create new lambda object
+  LAMBDA_CAPTURE  = 0xA1,  // arg: varname → capture variable into lambda
+  LAMBDA_SET_BODY = 0xA2,  // arg: param_count, sub: body instructions
+
   // Debug (AI reads structured output)
   DUMP      = 0xF0,
 

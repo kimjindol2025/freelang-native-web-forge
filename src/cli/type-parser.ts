@@ -1,7 +1,27 @@
 /**
  * FreeLang Type Annotation Parser
  * Parse optional type annotations in function signatures
+ * Phase 3: Added generic type support (array<T>, fn<T, U> -> V)
  */
+
+/**
+ * Phase 3: Generic Type Definition
+ * Represents a generic type with type parameters
+ */
+export interface GenericType {
+  base: string;                    // 'array', 'function', etc.
+  parameters: string[];            // Type variables: ['T', 'U', 'V']
+  constraints?: Record<string, string>;  // Type constraints: { T: 'number' }
+}
+
+/**
+ * Phase 3: Type Variable
+ * Represents a type variable like T, U, K, V
+ */
+export interface TypeVariable {
+  name: string;
+  constraint?: string;  // Optional constraint (e.g., T <: number)
+}
 
 /**
  * Type information for a function parameter
@@ -219,11 +239,117 @@ export class TypeParser {
   }
 
   /**
+   * Phase 3: Check if a string is a type variable (T, U, K, V, etc.)
+   */
+  static isTypeVariable(str: string): boolean {
+    // Type variables are single uppercase letters
+    // or uppercase followed by digits
+    return /^[A-Z]\d*$/.test(str);
+  }
+
+  /**
+   * Phase 3: Parse generic type syntax
+   * Examples: array<T>, fn<T, U> -> V, map<K, V>
+   */
+  static parseGenericType(typeStr: string): GenericType | null {
+    // Pattern: base<T, U, ...> or base<T> -> U
+    const genericMatch = typeStr.match(/^(\w+)<([^>]+)>(?:\s*->\s*(.+))?$/);
+
+    if (!genericMatch) {
+      return null;
+    }
+
+    const base = genericMatch[1];
+    const paramsStr = genericMatch[2];
+    const returnType = genericMatch[3];
+
+    // Parse type parameters
+    const parameters = paramsStr
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    // If there's a return type for function, add it to parameters
+    if (returnType && base.toLowerCase() === 'fn') {
+      parameters.push(returnType.trim());
+    }
+
+    return {
+      base,
+      parameters,
+      constraints: {}
+    };
+  }
+
+  /**
+   * Phase 3: Parse function type signature
+   * Examples: fn<T>(T) -> T, fn<T, U>(T, U) -> boolean
+   */
+  static parseFunctionType(typeStr: string): {
+    typeVars: string[];
+    paramTypes: string[];
+    returnType: string;
+  } | null {
+    // Pattern: fn<T, U, ...>(params) -> returnType
+    const fnMatch = typeStr.match(/^fn<([^>]+)>\(([^)]*)\)\s*->\s*(.+)$/);
+
+    if (!fnMatch) {
+      return null;
+    }
+
+    const typeVarsStr = fnMatch[1];
+    const paramsStr = fnMatch[2];
+    const returnType = fnMatch[3].trim();
+
+    // Parse type variables
+    const typeVars = typeVarsStr
+      .split(',')
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+
+    // Parse parameter types
+    const paramTypes = paramsStr
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    return {
+      typeVars,
+      paramTypes,
+      returnType
+    };
+  }
+
+  /**
+   * Phase 3: Type substitution - replace type variable with concrete type
+   * Example: substitute(array<T>, { T: number }) -> array<number>
+   */
+  static substituteType(
+    typeStr: string,
+    substitution: Record<string, string>
+  ): string {
+    // Replace each type variable with its substitution
+    let result = typeStr;
+
+    for (const [typeVar, concreteType] of Object.entries(substitution)) {
+      // Replace type variable with concrete type
+      // Handle edge cases: whole type, within array<>, function args
+      const pattern = new RegExp(`\\b${typeVar}\\b`, 'g');
+      result = result.replace(pattern, concreteType);
+    }
+
+    return result;
+  }
+
+  /**
    * Check if a type is valid
-   * Valid types: number, string, boolean, array<T>, any
+   * Valid types: number, string, boolean, array<T>, any, or type variables
    */
   static isValidType(type: string): boolean {
-    const validTypes = ['number', 'string', 'boolean', 'any'];
+    const validTypes = ['number', 'string', 'boolean', 'any', 'object'];
+
+    // Check for type variable (T, U, K, V, etc.)
+    if (this.isTypeVariable(type)) return true;
 
     // Check for basic types
     if (validTypes.includes(type)) return true;
@@ -232,6 +358,14 @@ export class TypeParser {
     if (type.startsWith('array<') && type.endsWith('>')) {
       const innerType = type.substring(6, type.length - 1);
       return this.isValidType(innerType);
+    }
+
+    // Check for generic types like map<K, V>
+    if (type.includes('<') && type.endsWith('>')) {
+      const genericPart = type.substring(0, type.indexOf('<'));
+      const paramPart = type.substring(type.indexOf('<') + 1, type.length - 1);
+      const params = paramPart.split(',').map(p => p.trim());
+      return params.every(p => this.isValidType(p));
     }
 
     return false;
@@ -254,6 +388,53 @@ export class TypeParser {
   }
 
   /**
+   * Phase 3: Unify two types for generic constraints
+   * Example: unify(array<T>, array<number>) -> { T: number }
+   */
+  static unifyTypes(
+    type1: string,
+    type2: string,
+    substitution: Record<string, string> = {}
+  ): Record<string, string> | null {
+    // Apply existing substitutions
+    const t1 = this.substituteType(type1, substitution);
+    const t2 = this.substituteType(type2, substitution);
+
+    // If they match exactly, no new constraint
+    if (t1 === t2) {
+      return substitution;
+    }
+
+    // If t1 is a type variable, unify it with t2
+    if (this.isTypeVariable(t1)) {
+      // Occurs check: make sure t1 doesn't appear in t2
+      if (t2.includes(t1)) {
+        return null; // Unification fails
+      }
+      return { ...substitution, [t1]: t2 };
+    }
+
+    // If t2 is a type variable, unify it with t1
+    if (this.isTypeVariable(t2)) {
+      if (t1.includes(t2)) {
+        return null;
+      }
+      return { ...substitution, [t2]: t1 };
+    }
+
+    // Both are concrete types - check structural unification
+    // array<T> unifies with array<U> -> unify T with U
+    if (t1.startsWith('array<') && t2.startsWith('array<')) {
+      const inner1 = t1.substring(6, t1.length - 1);
+      const inner2 = t2.substring(6, t2.length - 1);
+      return this.unifyTypes(inner1, inner2, substitution);
+    }
+
+    // No unification possible
+    return null;
+  }
+
+  /**
    * Check if two types are compatible (for assignment/function calls)
    */
   static areTypesCompatible(targetType: string, sourceType: string): boolean {
@@ -262,6 +443,11 @@ export class TypeParser {
 
     // any is compatible with everything
     if (targetType === 'any' || sourceType === 'any') return true;
+
+    // Type variables are compatible with anything
+    if (this.isTypeVariable(targetType) || this.isTypeVariable(sourceType)) {
+      return true;
+    }
 
     // array<T> compatibility
     if (targetType.startsWith('array<') && sourceType.startsWith('array<')) {
