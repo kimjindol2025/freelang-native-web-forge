@@ -41,10 +41,10 @@ export class TraitEngineOptimized {
   private memoizedExtractAssociatedTypes: (body: string) => string[];
 
   constructor() {
-    // 캐시 초기화 (더 작은 크기 = 더 빠른 접근, 테스트는 소규모 입력)
-    this.definitionCache = new LRUCache(64);
-    this.implementationCache = new LRUCache(64);
-    this.methodExtractionCache = new LRUCache(128);
+    // 캐시 초기화 (최적 크기: 메모리 vs 접근 속도 균형)
+    this.definitionCache = new LRUCache(256);
+    this.implementationCache = new LRUCache(256);
+    this.methodExtractionCache = new LRUCache(512);
 
     // 객체 풀 초기화
     this.methodPool = new ObjectPool(
@@ -69,12 +69,12 @@ export class TraitEngineOptimized {
     // 메모이제이션 함수
     this.memoizedExtractMethods = memoize(
       (body) => this.extractMethodsImpl(body),
-      new LRUCache(64)
+      new LRUCache(256)
     );
 
     this.memoizedExtractAssociatedTypes = memoize(
       (body) => this.extractAssociatedTypesImpl(body),
-      new LRUCache(64)
+      new LRUCache(256)
     );
 
     // 정규식 워밍업

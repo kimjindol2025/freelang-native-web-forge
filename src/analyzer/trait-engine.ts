@@ -93,11 +93,15 @@ export class TraitEngine {
     // Step 2: Trait 구현 추출
     this.extractTraitImplementations(functions, result);
 
-    // Step 3: 구현 검증
-    this.validateImplementations(result);
+    // Step 3: 구현 검증 (필요할 때만)
+    if (result.implementations.length > 0) {
+      this.validateImplementations(result);
+    }
 
-    // Step 4: Associated Types 검증
-    this.validateAssociatedTypes(result);
+    // Step 4: Associated Types 검증 (필요할 때만)
+    if (result.implementations.some((impl) => impl.associatedTypeBindings.size > 0)) {
+      this.validateAssociatedTypes(result);
+    }
 
     // Step 5: 완전성 계산
     result.completeness = this.calculateCompleteness(result);
