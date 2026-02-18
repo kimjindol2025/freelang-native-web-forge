@@ -46,8 +46,8 @@ export class TypeCheckCache {
   private evictionCount = 0;
 
   constructor(maxSize: number = 256) {
-    // Allow small cache sizes for testing, but cap at 4096
-    this.maxSize = Math.max(1, Math.min(maxSize, 4096));
+    // Enforce minimum cache size (16) and maximum (4096)
+    this.maxSize = Math.max(16, Math.min(maxSize, 4096));
   }
 
   /**

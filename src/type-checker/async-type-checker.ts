@@ -85,8 +85,9 @@ export class AsyncTypeChecker {
       this.validateType(param.type);
       this.symbolTable.set(param.name, {
         kind: 'variable',
-        type: param.type
-      });
+        type: param.type,
+        mutable: false
+      } as VariableTypeInfo);
     });
 
     // Type check function body (simplified)
@@ -189,8 +190,9 @@ export class AsyncTypeChecker {
       const varType = stmt.typeAnnotation || this.inferExpressionType(stmt.value);
       this.symbolTable.set(stmt.name, {
         kind: 'variable',
-        type: varType
-      });
+        type: varType,
+        mutable: true
+      } as VariableTypeInfo);
     }
 
     if (stmt.type === 'return-statement') {
