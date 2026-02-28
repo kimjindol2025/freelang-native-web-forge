@@ -32,6 +32,7 @@
     "chalk": "^4.1.2",
     "express": "^5.2.1",
     "koffi": "^2.15.1",
+    "spdy": "^4.0.2",
     "vscode-languageserver": "^8.1.0",
     "vscode-languageserver-textdocument": "^1.0.12"
   },
