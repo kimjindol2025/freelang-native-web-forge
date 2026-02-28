@@ -53,6 +53,16 @@ export * as archive from './archive';
 export * as ws from './ws';
 export * as grpc from './grpc';
 
+// Re-export Round 3 modules (Phase 6 - System/Network)
+export * as proc from './proc';
+export * as thread from './thread';
+export * as debug from './debug';
+export * as reflect from './reflect';
+export * as dns from './dns';
+export * as udp from './udp';
+export * as tls from './tls';
+export * as http2 from './http2';
+
 /**
  * Standard Library namespace
  *
@@ -113,6 +123,14 @@ import * as validateModule from './validate';
 import * as archiveModule from './archive';
 import * as wsModule from './ws';
 import * as grpcModule from './grpc';
+import * as procModule from './proc';
+import * as threadModule from './thread';
+import * as debugModule from './debug';
+import * as reflectModule from './reflect';
+import * as dnsModule from './dns';
+import * as udpModule from './udp';
+import * as tlsModule from './tls';
+import * as http2Module from './http2';
 
 const std = {
   // Phase 1 modules
@@ -153,7 +171,16 @@ const std = {
   validate: validateModule,
   archive: archiveModule,
   ws: wsModule,
-  grpc: grpcModule
+  grpc: grpcModule,
+  // Phase 6 modules (Round 3 - System/Network)
+  proc: procModule,
+  thread: threadModule,
+  debug: debugModule,
+  reflect: reflectModule,
+  dns: dnsModule,
+  udp: udpModule,
+  tls: tlsModule,
+  http2: http2Module
 };
 
 export default std;
