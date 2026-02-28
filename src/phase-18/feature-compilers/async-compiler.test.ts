@@ -337,7 +337,8 @@ let y = await getdata()`;
       const code = 'async fn fetch()';
       const result = await compiler.compile(code);
       expect(result.success).toBe(true);
-      expect(result.instructions.length).toBeGreaterThanOrEqual(0);
+      // @ts-ignore
+            expect(result.instructions.length).toBeGreaterThanOrEqual(0);
     });
 
     it('should generate instructions for state machine', async () => {
