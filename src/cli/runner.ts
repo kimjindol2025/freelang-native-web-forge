@@ -15,6 +15,7 @@ import { IRGenerator } from '../codegen/ir-generator';
 import { VM } from '../vm';
 import { FunctionRegistry } from '../parser/function-registry';
 import { Inst, VMResult } from '../types';
+import { optimizeIR } from '../phase-14-llvm';
 
 export interface RunResult {
   success: boolean;
@@ -85,8 +86,12 @@ export class ProgramRunner {
       // 3. Generate IR: Module → IR instructions
       const ir = this.gen.generateModuleIR(module);
 
-      // 4. Execute: IR → VM results
-      const result = this.vm.run(ir);
+      // 3.5. Optimize IR: Apply LLVM optimizations (ADCE, Constant Folding, Inlining)
+      // Temporarily disable optimization to check if it's the culprit
+      // const { optimized } = optimizeIR(ir);
+
+      // 4. Execute: Optimized IR → VM results
+      const result = this.vm.run(ir); // Use unoptimized IR for now
 
       const executionTime = Date.now() - startTime;
 

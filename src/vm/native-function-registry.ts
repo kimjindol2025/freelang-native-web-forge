@@ -11,7 +11,7 @@ import { FFIFunctionSignature } from '../ffi/type-bindings';
 export interface NativeFunctionConfig {
   name: string;                              // 함수명
   module: string;                            // C 모듈명
-  signature: FFIFunctionSignature;           // 함수 시그니처
+  signature?: FFIFunctionSignature;          // 함수 시그니처 (옵션)
   executor?: (args: any[]) => any;          // 실행 함수 (옵션)
   async?: boolean;                           // 비동기 여부
   callbackId?: number;                       // 콜백 ID
@@ -75,13 +75,15 @@ export class NativeFunctionRegistry {
       throw new Error(`Native function not found: ${name}`);
     }
 
-    // 매개변수 검증
-    const paramCount = config.signature.parameters.length;
-    if (args.length !== paramCount) {
-      throw new Error(
-        `Function ${name} expects ${paramCount} arguments, ` +
-        `but got ${args.length}`
-      );
+    // 매개변수 검증 (signature가 있을 때만)
+    if (config.signature) {
+      const paramCount = config.signature.parameters.length;
+      if (args.length !== paramCount) {
+        throw new Error(
+          `Function ${name} expects ${paramCount} arguments, ` +
+          `but got ${args.length}`
+        );
+      }
     }
 
     // 함수 실행

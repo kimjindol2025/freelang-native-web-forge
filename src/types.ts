@@ -7,14 +7,25 @@ export enum Op {
   PUSH      = 0x01,
   POP       = 0x02,
   DUP       = 0x03,
+  PUSH_FLOAT = 0x04,  // Phase 3: Push float literal (64-bit double)
 
-  // Arithmetic
+  // Arithmetic (Integer & Float)
   ADD       = 0x10,
   SUB       = 0x11,
   MUL       = 0x12,
   DIV       = 0x13,
   MOD       = 0x14,
   NEG       = 0x15,
+
+  // Float-specific arithmetic (Phase 3 Level 3)
+  FADD      = 0x16,   // stack: [float1, float2] → [float1 + float2]
+  FSUB      = 0x17,   // stack: [float1, float2] → [float1 - float2]
+  FMUL      = 0x18,   // stack: [float1, float2] → [float1 * float2]
+  FDIV      = 0x19,   // stack: [float1, float2] → [float1 / float2]
+
+  // Float conversions
+  F2I       = 0x1A,   // float to int: stack: [float] → [int(truncated)]
+  I2F       = 0x1B,   // int to float: stack: [int] → [float]
 
   // Comparison
   EQ        = 0x20,

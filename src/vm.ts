@@ -10,6 +10,8 @@ import { FunctionTypeChecker } from './analyzer/type-checker';
 import { TypeParser } from './cli/type-parser';
 import { NativeFunctionRegistry, NativeFunctionConfig } from './vm/native-function-registry';
 import { IRGenerator } from './codegen/ir-generator';
+import { registerStdlibFunctions } from './stdlib-builtins';
+import { registerTCPFunctions } from './stdlib/net/tcp-native';
 
 const MAX_CYCLES = 100_000;
 const MAX_STACK  = 10_000;
@@ -39,6 +41,10 @@ export class VM {
 
   constructor(functionRegistry?: FunctionRegistry) {
     this.functionRegistry = functionRegistry;
+    // Register stdlib functions (math, string, array, map, io, etc.)
+    registerStdlibFunctions(this.nativeFunctionRegistry);
+    // Phase 3 Level 3: Register TCP native functions
+    registerTCPFunctions(this.nativeFunctionRegistry);
   }
 
   /**
@@ -172,6 +178,30 @@ export class VM {
       case Op.NEG:
         this.need(1);
         this.stack[this.stack.length - 1] = -this.stack[this.stack.length - 1];
+        this.pc++;
+        break;
+
+      // ── Float Arithmetic (Phase 3 Level 3) ──
+      case Op.FADD: this.binop((a, b) => a + b); break;  // Same as ADD (JavaScript number is f64)
+      case Op.FSUB: this.binop((a, b) => a - b); break;
+      case Op.FMUL: this.binop((a, b) => a * b); break;
+      case Op.FDIV:
+        this.need(2);
+        if (this.stack[this.stack.length - 1] === 0) {
+          throw new Error('fdiv_zero');
+        }
+        this.binop((a, b) => a / b);
+        break;
+
+      // ── Float Conversions ──
+      case Op.F2I:  // float → int
+        this.need(1);
+        this.stack[this.stack.length - 1] = Math.trunc(this.stack[this.stack.length - 1] as number);
+        this.pc++;
+        break;
+      case Op.I2F:  // int → float (no-op in JavaScript, but semantically correct)
+        this.need(1);
+        this.stack[this.stack.length - 1] = Number(this.stack[this.stack.length - 1] as number);
         this.pc++;
         break;
 

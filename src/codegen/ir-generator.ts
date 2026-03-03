@@ -260,7 +260,12 @@ export class IRGenerator {
       // ── Literals ────────────────────────────────────────────
       case 'NumberLiteral':
       case 'number':
-        out.push({ op: Op.PUSH, arg: node.value });
+        // Distinguish between int and float
+        if (typeof node.value === 'number' && !Number.isInteger(node.value)) {
+          out.push({ op: Op.PUSH_FLOAT, arg: node.value });  // Float literal
+        } else {
+          out.push({ op: Op.PUSH, arg: node.value });  // Integer or generic number
+        }
         break;
 
       case 'StringLiteral':
@@ -271,7 +276,12 @@ export class IRGenerator {
       // Generic 'literal' from parser (detect type from value)
       case 'literal':
         if (typeof node.value === 'number') {
-          out.push({ op: Op.PUSH, arg: node.value });
+          // Phase 3: Distinguish int from float
+          if (!Number.isInteger(node.value)) {
+            out.push({ op: Op.PUSH_FLOAT, arg: node.value });
+          } else {
+            out.push({ op: Op.PUSH, arg: node.value });
+          }
         } else if (typeof node.value === 'string') {
           out.push({ op: Op.STR_NEW, arg: node.value });
         } else if (typeof node.value === 'boolean') {
@@ -342,10 +352,39 @@ export class IRGenerator {
         out.push({ op: Op.STORE, arg: node.name });
         break;
 
+      // ── Member Expression (obj.property, obj[index]) ──────────
+      case 'MemberExpression':
+      case 'member':
+        // Evaluate the object
+        this.traverse(node.object, out);
+
+        // Check if it's computed (obj[prop]) or not (obj.prop)
+        if (node.computed) {
+          // obj[index]: push the index value
+          this.traverse(node.property, out);
+          // Stack: [obj, index] → use ARR_GET or member access
+          out.push({ op: Op.ARR_GET });
+        } else {
+          // obj.property: property is a simple identifier
+          const propName = node.property?.name || node.property;
+          if (propName === 'length') {
+            // Special case: .length property
+            out.push({ op: Op.ARR_LEN });
+          } else {
+            // Generic property access (for objects/maps)
+            // Implement as a helper function call (future: map member access)
+            throw new Error(`Property access not yet supported: ${propName}`);
+          }
+        }
+        break;
+
       // ── Block (multiple statements) ─────────────────────────
       case 'Block':
-        if (node.statements && Array.isArray(node.statements)) {
-          for (const stmt of node.statements) {
+      case 'block':
+        // Support both node.statements and node.body (parser compatibility)
+        const statements = node.statements || node.body || [];
+        if (Array.isArray(statements)) {
+          for (const stmt of statements) {
             this.traverse(stmt, out);
           }
         }
@@ -593,8 +632,10 @@ export class IRGenerator {
       // ── Return Statement ────────────────────────────────────
       case 'ReturnStatement':
       case 'return':
-        if (node.value) {
-          this.traverse(node.value, out);
+        // Support both node.value and node.argument (parser compatibility)
+        const returnValue = node.value || node.argument;
+        if (returnValue) {
+          this.traverse(returnValue, out);
         } else {
           out.push({ op: Op.PUSH, arg: 0 });
         }
