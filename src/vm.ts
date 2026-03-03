@@ -533,6 +533,16 @@ export class VM {
           // Generate IR for the entire block (all statements at once)
           const bodyIR = gen.generateIR(bodyNode);
 
+          // DEBUG: Log bodyIR for inspection
+          if (process.env.DEBUG_FUNC_BODY) {
+            console.log(`[DEBUG] Function ${funcName} body IR (${bodyIR.length} instructions):`);
+            bodyIR.forEach((inst, idx) => {
+              const opName = Object.entries(Op).find(([_, v]) => v === inst.op)?.[0] || `Op(${inst.op})`;
+              console.log(`  [${idx}] ${opName} ${inst.arg !== undefined ? inst.arg : ''}`);
+            });
+            console.log(`[DEBUG] Current vars before execution:`, Array.from(this.vars.keys()));
+          }
+
           // Execute the body IR
           const bodyResult = this.runProgram(bodyIR);
           returnValue = bodyResult.value;

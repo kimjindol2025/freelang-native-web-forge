@@ -218,9 +218,21 @@ export class Parser {
     while (!this.check(TokenType.EOF)) {
       try {
         // Phase 2: Support fn at top level
+        const curToken = this.current();
+        if (process.env.DEBUG_PARSER) {
+          console.log(`[PARSER] Current token: type=${curToken.type}, value="${curToken.value}"`);
+        }
+
         if (this.check(TokenType.FN)) {
-          const fnStmt = this.parseFunctionDeclaration();
-          statements.push(fnStmt as any);
+          if (process.env.DEBUG_PARSER) console.log('[PARSER] Found FN, parsing function declaration');
+          try {
+            const fnStmt = this.parseFunctionDeclaration();
+            statements.push(fnStmt as any);
+            if (process.env.DEBUG_PARSER) console.log('[PARSER] Function declaration parsed successfully');
+          } catch (fnError) {
+            if (process.env.DEBUG_PARSER) console.log('[PARSER] Function declaration error:', fnError instanceof Error ? fnError.message : String(fnError));
+            throw fnError;  // Re-throw to be caught by outer catch
+          }
           continue;
         }
 
@@ -237,6 +249,7 @@ export class Parser {
         }
       } catch (error) {
         // On parse error, skip to next statement or EOF
+        if (process.env.DEBUG_PARSER) console.log('[PARSER] Outer catch, error:', error instanceof Error ? error.message : String(error));
         if (this.check(TokenType.EOF)) break;
         this.advance();
       }
@@ -1141,6 +1154,11 @@ export class Parser {
    *   - 표현식 문장
    */
   public parseStatement(): Statement {
+    // Phase 2: fn 함수 선언 (지원)
+    if (this.check(TokenType.FN)) {
+      return this.parseFunctionDeclaration() as any;
+    }
+
     // Phase 4 Step 2: import 문
     if (this.check(TokenType.IMPORT)) {
       return this.parseImportStatement();
