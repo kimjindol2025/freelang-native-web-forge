@@ -282,10 +282,24 @@ export class VM {
       }
 
       case Op.ARR_GET: {
-        this.need(1);
-        const arr = this.vars.get(arg as string);
-        if (!Array.isArray(arr)) throw new Error('not_array:' + arg);
-        const idx = this.stack.pop() as number;
+        this.need(2);
+        // If arg is provided, use variable-based access
+        // Otherwise use stack-based access: stack = [... array, index]
+        let arr;
+        let idx;
+
+        if (arg) {
+          // Variable-based: arr = vars[arg], idx = stack.pop()
+          arr = this.vars.get(arg as string);
+          if (!Array.isArray(arr)) throw new Error('not_array:' + arg);
+          idx = this.stack.pop() as number;
+        } else {
+          // Stack-based: pop index, then pop array
+          idx = this.stack.pop() as number;
+          arr = this.stack.pop();
+          if (!Array.isArray(arr)) throw new Error('not_array:stack_array');
+        }
+
         if (idx < 0 || idx >= arr.length) throw new Error('oob:' + idx);
         this.guardStack();
         this.stack.push(arr[idx]);

@@ -11,6 +11,7 @@
 
 import * as net from 'net';
 import { NativeFunctionRegistry } from '../../vm/native-function-registry';
+import { FFIFunctionSignature } from '../../ffi/type-bindings';
 
 /**
  * TCP 소켓 및 서버 풀 관리
@@ -134,9 +135,19 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_listen',
     module: 'net',
+    signature: {
+      name: 'tcp_listen',
+      returnType: 'int',
+      parameters: [
+        { name: 'port', type: 'int' },
+        { name: 'backlog', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
+      // args: [port, backlog]
       const port = args[0] as number;
-      const backlog = args[1] as number || 128;
+      const backlog = (args[1] as number) || 128;
 
       try {
         const server = net.createServer((socket: net.Socket) => {
@@ -144,7 +155,8 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
           socketPool.registerSocket(socket);
         });
 
-        server.listen(port, () => {
+        // server.listen(port, [host], [backlog], [callback])
+        server.listen(port, '0.0.0.0', backlog, () => {
           // 수신 대기 중
         });
 
@@ -164,8 +176,18 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_accept',
     module: 'net',
+    signature: {
+      name: 'tcp_accept',
+      returnType: 'int',
+      parameters: [
+        { name: 'server_id', type: 'int' },
+        { name: 'timeout', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const serverId = args[0] as number;
+      const timeout = args[1] as number;
       const server = socketPool.getServer(serverId);
       if (!server) {
         throw new Error(`Server not found: ${serverId}`);
@@ -183,6 +205,15 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_connect',
     module: 'net',
+    signature: {
+      name: 'tcp_connect',
+      returnType: 'int',
+      parameters: [
+        { name: 'host', type: 'string' },
+        { name: 'port', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const host = args[0] as string;
       const port = args[1] as number;
@@ -204,6 +235,15 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_send',
     module: 'net',
+    signature: {
+      name: 'tcp_send',
+      returnType: 'int',
+      parameters: [
+        { name: 'socket_id', type: 'int' },
+        { name: 'data', type: 'string' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const socketId = args[0] as number;
       const data = args[1] as string;
@@ -232,9 +272,18 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_recv',
     module: 'net',
+    signature: {
+      name: 'tcp_recv',
+      returnType: 'string',
+      parameters: [
+        { name: 'socket_id', type: 'int' },
+        { name: 'timeout', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const socketId = args[0] as number;
-      const timeout = args[1] as number || 5000;
+      const timeout = args[1] as number;
 
       const socket = socketPool.getSocket(socketId);
       if (!socket) {
@@ -260,9 +309,18 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_recv_line',
     module: 'net',
+    signature: {
+      name: 'tcp_recv_line',
+      returnType: 'string',
+      parameters: [
+        { name: 'socket_id', type: 'int' },
+        { name: 'timeout', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const socketId = args[0] as number;
-      const timeout = args[1] as number || 5000;
+      const timeout = args[1] as number;
 
       const socket = socketPool.getSocket(socketId);
       if (!socket) {
@@ -286,6 +344,14 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_close',
     module: 'net',
+    signature: {
+      name: 'tcp_close',
+      returnType: 'int',
+      parameters: [
+        { name: 'socket_id', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const socketId = args[0] as number;
       socketPool.closeSocket(socketId);
@@ -299,6 +365,14 @@ export function registerTCPFunctions(registry: NativeFunctionRegistry): void {
   registry.register({
     name: 'tcp_close_server',
     module: 'net',
+    signature: {
+      name: 'tcp_close_server',
+      returnType: 'int',
+      parameters: [
+        { name: 'server_id', type: 'int' }
+      ],
+      category: 'stream'
+    } as FFIFunctionSignature,
     executor: (args: any[]) => {
       const serverId = args[0] as number;
       socketPool.closeServer(serverId);

@@ -502,37 +502,48 @@ export class IRGenerator {
 
       // ── For Statement (Iterator-based Loop) ──────────────────
       case 'ForStatement':
-        // 1. Create iterator from iterable
+      case 'for':
+        // for...in loop: array iteration
+        // Treat same as ForOfStatement - use index-based approach
+
+        // 1. Initialize index variable with 0
+        const forIdxVar = `_idx_${this.indexVarCounter++}`;
+        out.push({ op: Op.PUSH, arg: 0 });
+        out.push({ op: Op.STORE, arg: forIdxVar });
+
+        // 2. Evaluate and store array
         this.traverse(node.iterable, out);
+        const forArrVar = `_arr_${this.indexVarCounter++}`;
+        out.push({ op: Op.STORE, arg: forArrVar });
 
-        // 2. Loop start address
-        const forLoopStart = out.length;
+        // 3. Loop condition check
+        const forLoopStartAddr = out.length;
+        out.push({ op: Op.LOAD, arg: forIdxVar });
+        out.push({ op: Op.ARR_LEN, arg: forArrVar });
+        out.push({ op: Op.LT });
+        const forJmpIdx = out.length;
+        out.push({ op: Op.JMP_NOT, arg: 0 }); // patch later
 
-        // 3. Check if iterator has next (ITER_HAS)
-        out.push({ op: Op.DUP }); // duplicate iterator for ITER_HAS
-        out.push({ op: Op.ITER_HAS });
-
-        // 4. Jump if no more elements
-        const forJmpNotIdx = out.length;
-        out.push({ op: Op.JMP_NOT, arg: 0 }); // placeholder
-
-        // 5. Get next value (ITER_NEXT)
-        out.push({ op: Op.ITER_NEXT });
-
-        // 6. Store loop variable
+        // 4. Load element and store in loop variable
+        out.push({ op: Op.LOAD, arg: forArrVar });
+        out.push({ op: Op.LOAD, arg: forIdxVar });
+        out.push({ op: Op.ARR_GET });
         out.push({ op: Op.STORE, arg: node.variable });
 
-        // 7. Execute body
+        // 5. Execute body
         this.traverse(node.body, out);
 
-        // 8. Jump back to loop start
-        out.push({ op: Op.JMP, arg: forLoopStart });
+        // 6. Increment index
+        out.push({ op: Op.LOAD, arg: forIdxVar });
+        out.push({ op: Op.PUSH, arg: 1 });
+        out.push({ op: Op.ADD });
+        out.push({ op: Op.STORE, arg: forIdxVar });
 
-        // 9. Patch JMP_NOT to point to end
-        out[forJmpNotIdx].arg = out.length;
+        // 7. Jump back
+        out.push({ op: Op.JMP, arg: forLoopStartAddr });
 
-        // 10. Pop iterator from stack
-        out.push({ op: Op.POP });
+        // 8. Patch exit jump
+        out[forJmpIdx].arg = out.length;
         break;
 
       // ── For...Of Statement (Array iteration with index) ────────
