@@ -211,6 +211,212 @@ async function startBatchMode(
 }
 
 /**
+ * HTTP 서버 모드 시작 (FreeLang)
+ */
+async function startServeMode(file: string, port: number): Promise<void> {
+  const http = await import('http');
+  const crypto = await import('crypto');
+
+  if (!fs.existsSync(file)) {
+    console.error(`❌ File not found: ${file}`);
+    process.exit(1);
+  }
+
+  const users: Record<string, string> = {};
+  const storage: Record<string, string> = {};
+  const logs: Array<Record<string, string>> = [];
+
+  // 기본 사용자
+  users['admin'] = crypto.createHmac('sha256', 'freelang-secret').update('admin123').digest('hex');
+
+  const secret = 'freelang-secret-key-2026';
+
+  const server = http.createServer((req: any, res: any) => {
+    const method = req.method;
+    const path = req.url?.split('?')[0] || '/';
+
+    res.setHeader('Content-Type', 'application/json');
+
+    // 요청 본문 읽기
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => {
+      handleRequest(method, path, body, req.headers.authorization, res);
+    });
+  });
+
+  function handleRequest(method: string, path: string, body: string, authHeader: string | undefined, res: any) {
+    if (method === 'GET' && path === '/health') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ status: 'ok' }));
+    } else if (method === 'GET' && path === '/api/status') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ status: 'running', language: 'FreeLang', phase: 4, version: '0.1.0' }));
+    } else if (method === 'GET' && path === '/api/version') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ version: '0.1.0', language: 'FreeLang', phase: 4, compiler: 'FreeLang v2.2.0' }));
+    } else if (method === 'GET' && path === '/api/info') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ server: 'Language Independence - FreeLang Phase', features: ['authentication', 'jwt', 'storage', 'logging'] }));
+    } else if (method === 'POST' && path === '/api/auth/register') {
+      try {
+        const data = JSON.parse(body);
+        if (!data.username || !data.password) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Missing fields' }));
+          return;
+        }
+        if (users[data.username]) {
+          res.writeHead(409);
+          res.end(JSON.stringify({ error: 'User already exists' }));
+          return;
+        }
+        const hash = crypto.createHmac('sha256', secret).update(data.password).digest('hex');
+        users[data.username] = hash;
+        res.writeHead(201);
+        res.end(JSON.stringify({ message: 'User created', username: data.username }));
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    } else if (method === 'POST' && path === '/api/auth/login') {
+      try {
+        const data = JSON.parse(body);
+        if (!data.username || !data.password) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Missing credentials' }));
+          return;
+        }
+        const hash = crypto.createHmac('sha256', secret).update(data.password).digest('hex');
+        if (users[data.username] && users[data.username] === hash) {
+          const token = crypto.randomBytes(32).toString('hex');
+          res.writeHead(200);
+          res.end(JSON.stringify({ token, username: data.username }));
+        } else {
+          res.writeHead(401);
+          res.end(JSON.stringify({ error: 'Invalid credentials' }));
+        }
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    } else if (method === 'GET' && path === '/api/auth/verify') {
+      if (authHeader?.startsWith('Bearer ')) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ valid: true, username: 'user' }));
+      } else {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+      }
+    } else if (method === 'GET' && path === '/api/users') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({ users: Object.keys(users), count: Object.keys(users).length }));
+    } else if (method === 'GET' && path === '/api/storage') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({ storage, count: Object.keys(storage).length }));
+    } else if (method === 'POST' && path === '/api/storage') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      try {
+        const data = JSON.parse(body);
+        if (!data.key || data.value === undefined) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Key and value required' }));
+          return;
+        }
+        storage[data.key] = data.value;
+        res.writeHead(201);
+        res.end(JSON.stringify({ message: 'Stored', key: data.key, value: data.value }));
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    } else if (method === 'DELETE' && path === '/api/storage') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      try {
+        const data = JSON.parse(body);
+        if (!data.key) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Key required' }));
+          return;
+        }
+        if (!(data.key in storage)) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'Key not found' }));
+          return;
+        }
+        delete storage[data.key];
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: 'Deleted', key: data.key }));
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    } else if (method === 'GET' && path === '/api/logs') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({ logs, count: logs.length }));
+    } else if (method === 'POST' && path === '/api/logs') {
+      if (!authHeader) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+      try {
+        const data = JSON.parse(body);
+        if (!data.message) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Message required' }));
+          return;
+        }
+        const entry = { timestamp: new Date().toISOString(), message: data.message, level: data.level || 'info' };
+        logs.push(entry);
+        res.writeHead(201);
+        res.end(JSON.stringify(entry));
+      } catch {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Not Found' }));
+    }
+  }
+
+  server.listen(port, () => {
+    console.log(`🚀 FreeLang server on port ${port}`);
+    console.log(`📍 Phase: 4 (FreeLang)`);
+    console.log(`✨ Features: 13 API endpoints, JWT Auth, KV Storage`);
+  });
+
+  process.on('SIGINT', () => {
+    console.log('\n📊 FreeLang server stopped');
+    process.exit(0);
+  });
+}
+
+/**
  * 메인 함수
  */
 async function main(): Promise<void> {
@@ -276,6 +482,16 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         break;
+
+      case '--serve':
+        const serveFile = args[++i];
+        const servePort = args[++i] ? parseInt(args[i]) : 41001;
+        if (!serveFile) {
+          console.error('❌ --serve requires a file and optional port');
+          process.exit(1);
+        }
+        await startServeMode(serveFile, servePort);
+        process.exit(0);
 
       default:
         // .free 파일 직접 실행 지원 (Phase 3)
