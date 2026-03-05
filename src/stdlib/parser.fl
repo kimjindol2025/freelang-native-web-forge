@@ -66,7 +66,7 @@
 /**
  * 파서 초기화
  */
-fn createParser(tokens) -> ParserState {
+fn createParser(tokens) {
   return {
     tokens: tokens,
     pos: 0,

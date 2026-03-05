@@ -353,3 +353,51 @@ export interface Parameter {
   name: string;
   paramType?: string;
 }
+
+/**
+ * Task B: Enhanced Type System
+ *
+ * Structured TypeAnnotation for better type checking
+ * Supports: primitives, unions, generics, arrays, functions
+ */
+
+export interface TypeParameter {
+  name: string;
+  constraint?: TypeAnnotationObject;
+  default?: TypeAnnotationObject;
+}
+
+// Structured type annotation (replaces string-based types)
+export type TypeAnnotationObject =
+  | PrimitiveType
+  | UnionTypeObject
+  | GenericTypeRef
+  | ArrayTypeRef
+  | FunctionTypeRef;
+
+export interface PrimitiveType {
+  kind: 'primitive';
+  name: 'number' | 'string' | 'boolean' | 'any' | 'void' | 'never';
+}
+
+export interface UnionTypeObject {
+  kind: 'union';
+  members: TypeAnnotationObject[];
+}
+
+export interface GenericTypeRef {
+  kind: 'generic';
+  name: string;
+  typeArguments: TypeAnnotationObject[];
+}
+
+export interface ArrayTypeRef {
+  kind: 'array';
+  element: TypeAnnotationObject;
+}
+
+export interface FunctionTypeRef {
+  kind: 'function';
+  paramTypes: TypeAnnotationObject[];
+  returnType: TypeAnnotationObject;
+}
