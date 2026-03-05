@@ -44,6 +44,11 @@ export class VM {
   private nativeFunctionRegistry = new NativeFunctionRegistry();  // Phase 3: FFI native functions
   private tryStack: Array<{ catchOffset: number; errorVar: string }> = [];  // Phase I: Exception handling
 
+  // Performance optimization (Phase C): Hot path instruction handlers
+  private instructionHandlers = new Map<Op, (inst: Inst, program: Inst[]) => void>();
+  private hotPathOps = new Set<Op>([Op.PUSH, Op.POP, Op.ADD, Op.SUB, Op.MUL, Op.DIV, Op.LOAD, Op.STORE]);
+  private handlersInitialized = false;
+
   constructor(functionRegistry?: FunctionRegistry) {
     this.functionRegistry = functionRegistry;
     // Register stdlib functions (math, string, array, map, io, etc.)
@@ -132,12 +137,20 @@ export class VM {
     const t0 = performance.now();
 
     try {
+      // Performance optimization: hot path execution
       while (this.pc < program.length) {
         if (this.cycles++ > MAX_CYCLES) {
           return this.fail(program[this.pc]?.op ?? Op.HALT, 1, 'cycle_limit');
         }
         const inst = program[this.pc];
-        this.exec(inst, program);
+
+        // Hot path: handle most common operations directly
+        if (this.hotPathOps.has(inst.op)) {
+          this.execHotPath(inst, program);
+        } else {
+          this.exec(inst, program);
+        }
+
         if (inst.op === Op.HALT) break;
       }
 
@@ -147,6 +160,73 @@ export class VM {
       const msg = e instanceof Error ? e.message : String(e);
       return this.fail(program[this.pc]?.op ?? Op.HALT, 99, msg, performance.now() - t0);
     }
+  }
+
+  /**
+   * Hot path execution for most common operations
+   * Performance optimization (Phase C): Avoid switch dispatch overhead
+   */
+  private execHotPath(inst: Inst, program: Inst[]): void {
+    const op = inst.op;
+
+    // PUSH: most common operation
+    if (op === Op.PUSH) {
+      this.guardStack();
+      this.stack.push(inst.arg as number);
+      this.pc++;
+      return;
+    }
+
+    // POP
+    if (op === Op.POP) {
+      this.need(1);
+      this.stack.pop();
+      this.pc++;
+      return;
+    }
+
+    // Binary arithmetic (hot operations in math-heavy code)
+    if (op === Op.ADD) {
+      this.binop((a, b) => a + b);
+      return;
+    }
+    if (op === Op.SUB) {
+      this.binop((a, b) => a - b);
+      return;
+    }
+    if (op === Op.MUL) {
+      this.binop((a, b) => a * b);
+      return;
+    }
+    if (op === Op.DIV) {
+      this.need(2);
+      if (this.stack[this.stack.length - 1] === 0) {
+        throw new Error('div_zero');
+      }
+      this.binop((a, b) => a / b);
+      return;
+    }
+
+    // LOAD: common variable access
+    if (op === Op.LOAD) {
+      const v = this.vars.get(inst.arg as string);
+      if (v === undefined) throw new Error('undef_var:' + inst.arg);
+      this.guardStack();
+      this.stack.push(v);
+      this.pc++;
+      return;
+    }
+
+    // STORE: common variable assignment
+    if (op === Op.STORE) {
+      this.need(1);
+      this.vars.set(inst.arg as string, this.stack.pop()!);
+      this.pc++;
+      return;
+    }
+
+    // Fallback to main exec for other hot path ops
+    this.exec(inst, program);
   }
 
   private exec(inst: Inst, program: Inst[]): void {

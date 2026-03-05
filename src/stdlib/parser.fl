@@ -77,7 +77,7 @@ fn createParser(tokens) {
 /**
  * 현재 토큰 조회
  */
-fn currentToken(p) -> map {
+fn currentToken(p) {
   if p.pos >= arr.len(p.tokens) {
     let lastToken = p.tokens[arr.len(p.tokens) - 1]
     return {
@@ -100,7 +100,7 @@ fn currentToken(p) -> map {
 /**
  * n개 앞의 토큰 미리보기
  */
-fn peekToken(p, n) -> map {
+fn peekToken(p, n) {
   let peekPos = p.pos + n
   if peekPos >= arr.len(p.tokens) {
     let lastToken = p.tokens[arr.len(p.tokens) - 1]
@@ -124,7 +124,7 @@ fn peekToken(p, n) -> map {
 /**
  * 다음 토큰으로 이동
  */
-fn advance(p) -> ParserState {
+fn advance(p) {
   return {
     tokens: p.tokens,
     pos: p.pos + 1,
@@ -135,7 +135,7 @@ fn advance(p) -> ParserState {
 /**
  * 현재 토큰 종류 확인
  */
-fn checkKind(p, kind) -> bool {
+fn checkKind(p, kind) {
   let curr = currentToken(p)
   return curr.token.kind == kind
 }
@@ -143,7 +143,7 @@ fn checkKind(p, kind) -> bool {
 /**
  * 특정 토큰 종류와 일치하면 소비하고 새 state 반환
  */
-fn matchKind(p, kind) -> map {
+fn matchKind(p, kind) {
   if checkKind(p, kind) {
     return {
       ok: true,
@@ -161,7 +161,7 @@ fn matchKind(p, kind) -> map {
 /**
  * 특정 토큰을 기대 (없으면 에러)
  */
-fn expectKind(p, kind, msg) -> map {
+fn expectKind(p, kind, msg) {
   let curr = currentToken(p)
   let t = curr.token
 
@@ -200,7 +200,7 @@ fn expectKind(p, kind, msg) -> map {
 /**
  * ASTNode 생성
  */
-fn makeNode(type, nodeVal, children, line, col) -> ASTNode {
+fn makeNode(type, nodeVal, children, line, col) {
   return {
     type: type,
     nodeVal: nodeVal,
@@ -213,7 +213,7 @@ fn makeNode(type, nodeVal, children, line, col) -> ASTNode {
 /**
  * ParseError 생성
  */
-fn parseError(line, col, msg) -> ParseError {
+fn parseError(line, col, msg) {
   return {
     msg: msg,
     line: line,
@@ -224,14 +224,14 @@ fn parseError(line, col, msg) -> ParseError {
 /**
  * 이진 연산자 노드 생성
  */
-fn makeBinaryNode(op, left, right, line, col) -> ASTNode {
+fn makeBinaryNode(op, left, right, line, col) {
   return makeNode("BinaryOp", op, [left, right], line, col)
 }
 
 /**
  * 함수 호출 노드 생성
  */
-fn makeCallNode(func, args, line, col) -> ASTNode {
+fn makeCallNode(func, args, line, col) {
   let children = [func]
   for i in args {
     arr.push(children, i)
@@ -242,14 +242,14 @@ fn makeCallNode(func, args, line, col) -> ASTNode {
 /**
  * 리터럴 노드 생성
  */
-fn makeLiteralNode(value, line, col) -> ASTNode {
+fn makeLiteralNode(value, line, col) {
   return makeNode("Literal", value, [], line, col)
 }
 
 /**
  * 식별자 노드 생성
  */
-fn makeIdentNode(name, line, col) -> ASTNode {
+fn makeIdentNode(name, line, col) {
   return makeNode("Identifier", name, [], line, col)
 }
 
@@ -260,7 +260,7 @@ fn makeIdentNode(name, line, col) -> ASTNode {
 /**
  * 연산자 우선순위 반환 (클수록 높음)
  */
-fn getOperatorPrecedence(op) -> int {
+fn getOperatorPrecedence(op) {
   if op == "||" {
     return 1
   }
@@ -285,7 +285,7 @@ fn getOperatorPrecedence(op) -> int {
 /**
  * 우선순위 연산자 여부 확인
  */
-fn isBinaryOp(op) -> bool {
+fn isBinaryOp(op) {
   return getOperatorPrecedence(op) > 0
 }
 
@@ -298,7 +298,7 @@ fn isBinaryOp(op) -> bool {
  *
  * 이 함수는 파싱 트리의 가장 깊은 레벨을 처리합니다.
  */
-fn parsePrimary(p) -> map {
+fn parsePrimary(p) {
   let curr = currentToken(p)
   let t = curr.token
 
@@ -362,7 +362,7 @@ fn parsePrimary(p) -> map {
  *
  * 우선순위 등반으로 연산자 우선순위 처리
  */
-fn parseBinaryRight(p, left, minPrec) -> map {
+fn parseBinaryRight(p, left, minPrec) {
   let curr = currentToken(p)
   let t = curr.token
   let prec = getOperatorPrecedence(t.value)
@@ -418,7 +418,7 @@ fn parseBinaryRight(p, left, minPrec) -> map {
 /**
  * 식 파싱 진입점
  */
-fn parseExpression(p) -> map {
+fn parseExpression(p) {
   let primRes = parsePrimary(p)
   if !primRes.ok {
     return primRes
@@ -437,7 +437,7 @@ fn parseExpression(p) -> map {
 /**
  * let 선언 파싱
  */
-fn parseLetDecl(p) -> map {
+fn parseLetDecl(p) {
   // let 키워드 소비
   let p1 = advance(p)
 
@@ -474,7 +474,7 @@ fn parseLetDecl(p) -> map {
 /**
  * return 문 파싱
  */
-fn parseReturnStmt(p) -> map {
+fn parseReturnStmt(p) {
   let returnToken = currentToken(p).token
   let p1 = advance(p)
 
@@ -503,7 +503,7 @@ fn parseReturnStmt(p) -> map {
 /**
  * 문장 블록 파싱
  */
-fn parseBlock(p) -> map {
+fn parseBlock(p) {
   // { 기대
   let lbRes = expectKind(p, "LBRACE", "Expected '{'")
   if !lbRes.ok {
@@ -540,7 +540,7 @@ fn parseBlock(p) -> map {
 /**
  * 문장 파싱 (디스패처)
  */
-fn parseStatement(p) -> map {
+fn parseStatement(p) {
   let curr = currentToken(p).token
 
   if curr.kind == "LET" {
@@ -584,7 +584,7 @@ fn parseStatement(p) -> map {
 /**
  * 함수 매개변수 목록 파싱
  */
-fn parseParams(p) -> map {
+fn parseParams(p) {
   let params = []
 
   // ( 기대
@@ -632,7 +632,7 @@ fn parseParams(p) -> map {
 /**
  * 함수 선언 파싱
  */
-fn parseFnDecl(p) -> map {
+fn parseFnDecl(p) {
   let fnToken = currentToken(p).token
   let p1 = advance(p)
 
@@ -677,7 +677,7 @@ fn parseFnDecl(p) -> map {
 /**
  * 모듈 전체 파싱
  */
-fn parseModule(p) -> map {
+fn parseModule(p) {
   let functions = []
   let variables = []
 
