@@ -1,0 +1,19 @@
+// Test simple struct usage in lexer.fl
+
+struct Token {
+  kind,
+  value,
+  line,
+  col,
+  length
+}
+
+let token = Token {
+  kind: "KEYWORD",
+  value: "fn",
+  line: 1,
+  col: 0,
+  length: 2
+}
+
+println("Token struct created successfully")
