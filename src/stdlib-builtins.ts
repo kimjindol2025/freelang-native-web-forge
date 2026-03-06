@@ -20,6 +20,7 @@ import { registerSklearnFunctions } from './stdlib-sklearn';
 import { registerTeamCFunctions } from './stdlib-team-c-fileio-date';
 import { registerTeamBFunctions } from './stdlib-team-b-string-math';
 import { registerTeamEFunctions } from './stdlib-team-e-async-test';
+import { registerTeamFFunctions } from './stdlib-team-f-security';
 
 /**
  * stdlib 함수들을 NativeFunctionRegistry에 등록
@@ -3059,6 +3060,14 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
   // fake-timer, expect, promise-utils, queue-worker, task-manager, pipeline
   // ────────────────────────────────────────────────────────────
   registerTeamEFunctions(registry);
+
+  // ────────────────────────────────────────────────────────────
+  // Team F: Security/Crypto/System
+  // hash, aes, hmac, jwt-utils, argon2, scrypt, sign, random-bytes,
+  // process, signal, memory, cpu, disk, network-iface, locale, currency,
+  // units, color, qrcode, encoding-ext, zlib, password
+  // ────────────────────────────────────────────────────────────
+  registerTeamFFunctions(registry);
 
   // Silent registration (no console output)
 }

@@ -1,0 +1,108 @@
+// Team F Security/Crypto 테스트
+
+// Test 1: Hash functions
+print("=== Hash Functions ===");
+let md5 = hash_md5("hello");
+print("MD5(hello):", md5);
+
+let sha256 = hash_sha256("hello");
+print("SHA256(hello):", sha256);
+
+// Test 2: Random functions
+print("\n=== Random Functions ===");
+let randomHex = random_hex(16);
+print("Random HEX(16):", randomHex);
+
+let randomUuid = random_uuid(4);
+print("Random UUID:", randomUuid);
+
+let randomStr = random_string(12);
+print("Random String(12):", randomStr);
+
+// Test 3: HMAC
+print("\n=== HMAC Functions ===");
+let hmac = hmac_sha256("message", "secret_key");
+print("HMAC-SHA256:", hmac);
+
+// Test 4: JWT
+print("\n=== JWT Functions ===");
+let payload = {"user_id": 123, "username": "testuser"};
+let secret = "super_secret_key";
+let token = jwt_sign(payload, secret);
+print("JWT Token created:", token);
+
+let verified = jwt_verify(token, secret);
+if (verified != null) {
+  print("JWT verified. User ID:", verified.user_id);
+}
+
+// Test 5: Password
+print("\n=== Password Functions ===");
+let hashedPassword = password_hash("myPassword123!");
+print("Password hashed:", hashedPassword.hash);
+
+let isValid = password_verify("myPassword123!", hashedPassword);
+print("Password verification:", isValid);
+
+let generatedPassword = password_generate(16);
+print("Generated password:", generatedPassword);
+
+let strength = password_strength("SecurePass123!");
+print("Password strength:", strength.level, "score:", strength.strength);
+
+// Test 6: System Info
+print("\n=== System Info ===");
+let pidNum = proc_pid();
+print("Process ID:", pidNum);
+
+let cpuCount = cpu_count();
+print("CPU Count:", cpuCount);
+
+let memUsage = mem_usage();
+print("Memory Usage (MB) - Heap Used:", memUsage.heapUsed);
+
+// Test 7: Color functions
+print("\n=== Color Functions ===");
+let hex = "#FF5733";
+let rgb = color_hex_to_rgb(hex);
+print("HEX to RGB:", rgb);
+
+let newHex = color_rgb_to_hex(255, 87, 51);
+print("RGB to HEX:", newHex);
+
+let lighter = color_lighten("#333333", 0.3);
+print("Lightened color:", lighter);
+
+// Test 8: Unit conversion
+print("\n=== Unit Conversion ===");
+let meters = units_length(100, "cm", "m");
+print("100 cm in meters:", meters);
+
+let celsius = units_temperature(32, "F", "C");
+print("32 F in Celsius:", celsius);
+
+let kilograms = units_weight(2.2, "lb", "kg");
+print("2.2 lb in kg:", kilograms);
+
+// Test 9: Encoding
+print("\n=== Encoding Functions ===");
+let base64 = encoding_base64_encode("hello world");
+print("Base64 encoded:", base64);
+
+let decoded = encoding_base64_decode(base64);
+print("Base64 decoded:", decoded);
+
+let hex_encoded = encoding_hex_encode("test");
+print("HEX encoded:", hex_encoded);
+
+// Test 10: Network
+print("\n=== Network Info ===");
+let interfaces = net_interfaces();
+print("Network interfaces:", interfaces);
+
+// Test 11: Locale and Currency
+print("\n=== Locale & Currency ===");
+let formatted = currency_format(1234.56, "USD");
+print("Currency formatted:", formatted);
+
+print("\n=== All Team F Tests Complete ===");
