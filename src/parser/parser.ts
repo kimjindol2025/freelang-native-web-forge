@@ -95,7 +95,7 @@ export class Parser {
 
   // Performance optimization: operator precedence cache
   private precedenceCache = new Map<string, number>();
-  private cachedOperators: Set<string> = new Set([
+  private _cachedOperators: Set<string> = new Set([
     '||', '&&', '|', '^', '&',
     '==', '!=', '<', '>', '<=', '>=',
     '<<', '>>',
@@ -468,17 +468,39 @@ export class Parser {
           this.advance(); // '@' 소비
           if (this.check(TokenType.IDENT)) {
             const annotName = this.current().value;
-            pendingAnnotations.push(annotName);
             this.advance();
-            // @monitor(level: .detailed) 형태 파라미터 스킵
+            // Commit-Gate: @git_hook(event: .pre_commit) 파라미터 캡처
+            // git_hook 어노테이션은 이벤트 타입을 추출하여 "git_hook:pre_commit" 형태로 저장
             if (this.check(TokenType.LPAREN)) {
               this.advance();
-              let depth = 1;
-              while (depth > 0 && !this.check(TokenType.EOF)) {
-                if (this.check(TokenType.LPAREN)) depth++;
-                else if (this.check(TokenType.RPAREN)) depth--;
-                this.advance();
+              if (annotName === 'git_hook') {
+                // event: .pre_commit 또는 event: .pre_push 추출
+                let eventValue = '';
+                let depth = 1;
+                while (depth > 0 && !this.check(TokenType.EOF)) {
+                  if (this.check(TokenType.LPAREN)) depth++;
+                  else if (this.check(TokenType.RPAREN)) { depth--; if (depth === 0) break; }
+                  // DOT 뒤 IDENT → 이벤트 이름 (e.g. .pre_commit → pre_commit)
+                  if (this.check(TokenType.DOT)) {
+                    this.advance();
+                    if (this.check(TokenType.IDENT)) eventValue = this.current().value;
+                  }
+                  this.advance();
+                }
+                this.advance(); // ')' 소비
+                pendingAnnotations.push(eventValue ? `git_hook:${eventValue}` : 'git_hook');
+              } else {
+                // 기타 어노테이션: 파라미터 스킵
+                let depth = 1;
+                while (depth > 0 && !this.check(TokenType.EOF)) {
+                  if (this.check(TokenType.LPAREN)) depth++;
+                  else if (this.check(TokenType.RPAREN)) depth--;
+                  this.advance();
+                }
+                pendingAnnotations.push(annotName);
               }
+            } else {
+              pendingAnnotations.push(annotName);
             }
           }
         }
