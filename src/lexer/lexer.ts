@@ -541,6 +541,105 @@ export class Lexer {
     tokens.push(token); // Add EOF
     return tokens;
   }
+
+  /**
+   * Self-Formatting Compiler: Trivia-Tracking 토크나이저
+   *
+   * 주석(// ..., /* ... *\/)과 빈 줄을 버리지 않고 TriviaToken으로 반환.
+   * pretty-printer가 AST를 역직렬화할 때 원본 주석을 재삽입하는 데 사용됨.
+   *
+   * 반환 타입: TriviaToken[]
+   *   - kind: 'code'    → 일반 토큰
+   *   - kind: 'comment' → 라인/블록 주석 원문
+   *   - kind: 'blank'   → 빈 줄 (연속된 \n 묶음)
+   */
+  public tokenizeWithTrivia(): TriviaToken[] {
+    const result: TriviaToken[] = [];
+
+    while (true) {
+      // 공백(스페이스/탭/CR)은 건너뜀 - 라인 기준만 보존
+      while (this.current === ' ' || this.current === '\t' || this.current === '\r') {
+        this.readChar();
+      }
+
+      // 빈 줄 수집 (연속 \n → blank trivia)
+      if (this.current === '\n') {
+        let blanks = 0;
+        while (this.current === '\n') {
+          blanks++;
+          this.readChar();
+          this.line++;
+          this.column = 1;
+        }
+        if (blanks > 1) {
+          // 2개 이상 연속 \n = 의미 있는 빈 줄 구분자
+          result.push({ kind: 'blank', text: '\n'.repeat(blanks - 1), line: this.line, column: 1 });
+        }
+        continue;
+      }
+
+      // 라인 주석 // ... → comment trivia
+      if ((this.current as string) === '/' && this.peekChar() === '/') {
+        const startLine = this.line;
+        let text = '';
+        this.readChar(); this.readChar(); // skip //
+        while ((this.current as string) !== '\n' && (this.current as string) !== '\0') {
+          text += this.current;
+          this.readChar();
+        }
+        result.push({ kind: 'comment', text: '//' + text, line: startLine, column: 1 });
+        continue;
+      }
+
+      // 블록 주석 /* ... */ → comment trivia
+      if ((this.current as string) === '/' && this.peekChar() === '*') {
+        const startLine = this.line;
+        let text = '/*';
+        this.readChar(); this.readChar(); // skip /*
+        while (!((this.current as string) === '*' && this.peekChar() === '/') && (this.current as string) !== '\0') {
+          if ((this.current as string) === '\n') { this.line++; this.column = 0; }
+          text += this.current;
+          this.readChar();
+        }
+        if ((this.current as string) !== '\0') {
+          this.readChar(); this.readChar(); // skip */
+          text += '*/';
+        }
+        result.push({ kind: 'comment', text, line: startLine, column: 1 });
+        continue;
+      }
+
+      // EOF
+      if (this.current === '\0') {
+        result.push({ kind: 'code', token: this.makeToken(TokenType.EOF, ''), line: this.line, column: this.column });
+        break;
+      }
+
+      // 일반 코드 토큰 (nextToken 로직 재호출 대신 직접 추출)
+      const tok = this.nextToken();
+      if (tok.type === TokenType.NEWLINE) continue; // nextToken 내부에서 나온 newline 무시
+      result.push({ kind: 'code', token: tok, line: tok.line, column: tok.column });
+
+      if (tok.type === TokenType.EOF) break;
+    }
+
+    return result;
+  }
+}
+
+/**
+ * Self-Formatting Compiler: Trivia Token
+ *
+ * - kind='code'    : 일반 코드 토큰 (token 필드 있음)
+ * - kind='comment' : 주석 원문 (text 필드)
+ * - kind='blank'   : 빈 줄 구분자 (text = '\n' 반복)
+ */
+export interface TriviaToken {
+  kind: 'code' | 'comment' | 'blank';
+  token?: Token;   // kind='code' 일 때
+  text?: string;   // kind='comment'|'blank' 일 때
+  line: number;
+  column: number;
 }
 
 /**

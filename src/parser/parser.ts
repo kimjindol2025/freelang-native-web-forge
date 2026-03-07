@@ -574,14 +574,25 @@ export class Parser {
     if (!this.check(TokenType.RPAREN)) {
       do {
         const paramName = this.expect(TokenType.IDENT, 'Expected parameter name');
-        params.push({
-          name: paramName.value,
-          paramType: undefined  // Type optional
-        });
+        let paramType: string | undefined;
+        // Self-Formatting Compiler: 파라미터 타입 어노테이션 지원 (name: type)
+        if (this.check(TokenType.COLON)) {
+          this.advance(); // consume ':'
+          paramType = this.parseType();
+        }
+        params.push({ name: paramName.value, paramType });
       } while (this.match(TokenType.COMMA));
     }
 
     this.expect(TokenType.RPAREN, 'Expected ) after parameters');
+
+    // Self-Formatting Compiler: 반환 타입 지원 (-> returnType)
+    let returnType: string | undefined;
+    if (this.check(TokenType.ARROW)) {
+      this.advance(); // consume '->'
+      returnType = this.parseType();
+    }
+
     if (process.env.DEBUG_PARSER) console.log(`[parseFnDecl] About to parse body, current=${this.current().type}`);
 
     // Function body
@@ -594,7 +605,7 @@ export class Parser {
       ...(typeParams.length > 0 && { typeParams }),
       params,
       body,
-      returnType: undefined,
+      returnType,
       async: isAsync  // Phase J: Mark as async
     };
   }
