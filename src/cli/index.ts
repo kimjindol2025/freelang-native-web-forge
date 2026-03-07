@@ -34,6 +34,7 @@ Usage:
   freelang test [path]        # Proof-Tester: @test 함수 실행
   freelang build <file.fl>    # KPM-Linker: 단일 바이너리 빌드
   freelang gate <sub>         # Commit-Gate: git hook 컴파일러 내장 관리
+  freelang --watch <file>     # Native-Hot-Reload: @hot 함수 자동 교체 (nodemon 대체)
   freelang --help             # 도움말
   freelang --version          # 버전 정보
 
@@ -605,6 +606,36 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         break;
+
+      case '--watch': {
+        // Native-Hot-Reload: freelang --watch program.free
+        const watchFile = args[++i];
+        if (!watchFile || (!watchFile.endsWith('.free') && !watchFile.endsWith('.fl'))) {
+          console.error('❌ --watch requires a .free or .fl file');
+          process.exit(1);
+        }
+        const absWatchFile = path.resolve(watchFile);
+        if (!fs.existsSync(absWatchFile)) {
+          console.error(`❌ File not found: ${absWatchFile}`);
+          process.exit(1);
+        }
+        const watchRunner = new ProgramRunner();
+        process.stdout.write(`[Native-Hot-Reload] 시작: ${path.basename(absWatchFile)}\n`);
+        // 최초 실행
+        const watchResult = watchRunner.runFile(absWatchFile);
+        if (!watchResult.success && watchResult.error) {
+          process.stderr.write(`[Error] ${watchResult.error}\n`);
+        }
+        // 감시 시작 (프로세스 유지)
+        watchRunner.watchFile(absWatchFile);
+        watchRunner.getHotReloadEngine().onReload((ev) => {
+          if (ev.reloadedFunctions.length > 0) {
+            process.stdout.write(`[Native-Hot-Reload] 교체 완료: ${ev.reloadedFunctions.join(', ')}\n`);
+          }
+        });
+        mode = 'file'; // interactive 진입 방지
+        break;
+      }
 
       case '--serve':
         const serveFile = args[++i];

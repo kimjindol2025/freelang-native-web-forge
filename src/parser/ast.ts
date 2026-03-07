@@ -247,9 +247,21 @@ export interface ORMAnnotation {
   args?: Record<string, string>;    // 예: { name: 'wash_logs' } or { type: 'varchar(255)' }
 }
 
+// Compile-Time-Validator: @check(min:N, max:N, pattern:"...") 어노테이션
+// @check(min: 3, max: 20)           → 길이/크기 범위 검증
+// @check(pattern: "^[a-z]+$")       → 정규표현식 검증 (SIMD 가속)
+// @check(min: 0, max: 100, pattern: "^\\d+$") → 복합 검증
+export interface CheckConstraint {
+  min?: number;      // string: 최소 길이, number: 최솟값
+  max?: number;      // string: 최대 길이, number: 최댓값
+  pattern?: string;  // 정규표현식 패턴 (SIMD-accelerated matching)
+  required?: boolean; // 필수 필드 여부 (기본 true)
+}
+
 // Phase 16: Struct Declaration
 // Reified-Type-System: typeParams 추가 → struct User<T> { id: T, name: string }
 // Compile-Time-ORM: annotations 추가 → @db_table(name: "wash_logs") struct WashLog { ... }
+// Compile-Time-Validator: checkConstraints 추가 → @check(min:3, max:20) username: string
 export interface StructDeclaration {
   type: 'struct';
   name: string;
@@ -257,7 +269,8 @@ export interface StructDeclaration {
   fields: Array<{
     name: string;
     fieldType?: string;
-    annotations?: ORMAnnotation[];   // Compile-Time-ORM: @db_id, @db_column(type: .varchar)
+    annotations?: ORMAnnotation[];       // Compile-Time-ORM: @db_id, @db_column(type: .varchar)
+    checkConstraints?: CheckConstraint;  // Compile-Time-Validator: @check(...) 검증 규칙
   }>;
   annotations?: ORMAnnotation[];     // Compile-Time-ORM: @db_table(name: "...") 등
   secureToken?: SecureTokenAnnotation; // Native-Auth-Token: @secure_token(...)

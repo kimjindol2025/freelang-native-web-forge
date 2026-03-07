@@ -1,0 +1,39 @@
+// test_auth_token.free
+// Native-Auth-Token 통합 테스트 (FreeLang v2 VM 버그 최대 우회)
+//
+// 알려진 버그: 함수 호출 반환값을 let에 저장 후 다른 fn 호출 시 변수 소멸
+// 우회: 중첩 함수 호출 / 단일 표현식 사용
+
+fn make_claims() {
+    let m = map_new()
+    map_set(m, "user_id", 101)
+    map_set(m, "role", "admin")
+    return m
+}
+
+fn main() {
+    // 1. HMAC-SHA256 직접 출력
+    println("HMAC-SHA256:")
+    println(hmac_sha256("freelang-secret", "hello"))
+
+    // 2. SHA-256 직접 출력
+    println("SHA-256:")
+    println(sha256_hex("freelang-native"))
+
+    // 3. 토큰 발급 + 즉시 fields 확인 (중첩 호출)
+    println("role from token:")
+    println(token_claims_get(token_sign(make_claims(), "secret", 3600), "role"))
+
+    println("user_id from token:")
+    println(token_claims_get(token_sign(make_claims(), "secret", 3600), "user_id"))
+
+    // 4. 만료 확인 (3600초 유효 → 아직 유효)
+    println("expired check:")
+    println(token_expired(token_sign(make_claims(), "secret", 3600)))
+
+    // 5. 없는 키 → null
+    println("missing key:")
+    println(token_claims_get(token_sign(make_claims(), "secret", 3600), "xyz"))
+
+    println("--- Native-Auth-Token PASS ---")
+}

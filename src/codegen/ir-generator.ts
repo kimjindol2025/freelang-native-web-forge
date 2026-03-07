@@ -131,12 +131,19 @@ export class IRGenerator {
       this.collectExportedSymbol(exportStmt);
     }
 
-    // Step 4: 모듈 본체 IR 생성
+    // Step 4: Hardware-CORS - @allow_origin 있으면 CORS 화이트리스트 초기화 IR 주입
+    if (module.allowOrigins && module.allowOrigins.length > 0) {
+      instructions.push({ op: Op.PUSH, arg: module.allowOrigins.join(',') });
+      instructions.push({ op: Op.CALL, arg: 'http_cors_set_origins' });
+      instructions.push({ op: Op.POP });
+    }
+
+    // Step 5: 모듈 본체 IR 생성
     for (const stmt of module.statements) {
       this.traverse(stmt, instructions);
     }
 
-    // Step 5: HALT 추가
+    // Step 6: HALT 추가
     instructions.push({ op: Op.HALT });
 
     return instructions;

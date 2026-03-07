@@ -25,6 +25,7 @@ import { registerTeamEFunctions } from './stdlib-team-e-async-test';
 import { registerTeamFFunctions } from './stdlib-team-f-security';
 import { registerNativeChartFunctions } from './stdlib-chart';
 import { registerWebForgeFunctions } from './stdlib-web-forge';
+import { registerAuthFunctions } from './stdlib-auth';
 import * as fs from 'fs';
 
 /**
@@ -3931,6 +3932,9 @@ export function registerStdlibFunctions(registry: NativeFunctionRegistry): void 
 
   // Native-Web-Forge: Next.js 대체 SSG/SSR 엔진
   registerWebForgeFunctions(registry);
+
+  // Native-Auth-Token: JWT 대체 HMAC-SHA256 토큰 발급/검증
+  registerAuthFunctions(registry);
 
   // Silent registration (no console output)
 }

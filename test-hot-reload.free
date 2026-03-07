@@ -1,0 +1,19 @@
+// Native-Hot-Reload 데모
+// @hot 어노테이션: 저장 시 이 함수만 재컴파일 + 교체 (프로세스 재시작 없음)
+
+@hot
+fn handle_request() -> string {
+    return "FreeLang v2: 핫 리로드 v1 - 원본 응답"
+}
+
+fn static_helper() -> string {
+    return "static_helper: 변경 안 됨"
+}
+
+fn main() {
+    let msg = handle_request()
+    println(msg)
+    let helper = static_helper()
+    println(helper)
+    println("@hot 함수만 실시간 교체됩니다. static_helper는 교체 안 됩니다.")
+}

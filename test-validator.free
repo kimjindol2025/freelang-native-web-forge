@@ -1,0 +1,138 @@
+// FreeLang v2 - Compile-Time-Validator 셀프호스팅 검증 테스트
+// @check 어노테이션 → 컴파일 타임 is_valid() / get_errors() 생성
+// Joi 완전 대체 (외부 의존성 0%)
+
+// ─── 검증 가능한 struct 정의 ─────────────────────────────────────────────
+struct UserRegistration {
+    @check(min: 3, max: 20)
+    username: string,
+
+    @check(pattern: "^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$")
+    email: string,
+
+    @check(min: 18, max: 120)
+    age: int
+}
+
+struct Product {
+    @check(min: 1, max: 100)
+    name: string,
+
+    @check(min: 0, max: 9999999)
+    price: int,
+
+    @check(min: 0)
+    stock: int
+}
+
+fn main() {
+    print("=== FreeLang v2 Compile-Time-Validator 테스트 ===")
+    print("")
+
+    // ── 테스트 1: 정상 데이터 검증 ───────────────────────────────────────
+    print("[TEST 1] 정상 데이터 검증")
+    let valid_user = map_new()
+    let valid_user = map_set(valid_user, "username", "kimjin")
+    let valid_user = map_set(valid_user, "email", "jin@dclub.kr")
+    let valid_user = map_set(valid_user, "age", 30)
+
+    let ok = validator_is_valid("UserRegistration", valid_user)
+    if (ok) {
+        print("  PASS: 정상 데이터 검증 통과")
+    } else {
+        print("  FAIL: 정상 데이터가 실패 판정됨")
+    }
+
+    // ── 테스트 2: 짧은 username 오류 감지 ────────────────────────────────
+    print("[TEST 2] username 길이 오류 감지 (min: 3)")
+    let bad_user = map_new()
+    let bad_user = map_set(bad_user, "username", "ab")
+    let bad_user = map_set(bad_user, "email", "test@dclub.kr")
+    let bad_user = map_set(bad_user, "age", 25)
+
+    let ok2 = validator_is_valid("UserRegistration", bad_user)
+    if (ok2) {
+        print("  FAIL: 짧은 username을 통과시켜버림")
+    } else {
+        print("  PASS: 짧은 username 오류 감지 성공")
+    }
+
+    // ── 테스트 3: 이메일 패턴 오류 감지 ──────────────────────────────────
+    print("[TEST 3] 이메일 패턴 오류 감지")
+    let bad_email = map_new()
+    let bad_email = map_set(bad_email, "username", "kimjin")
+    let bad_email = map_set(bad_email, "email", "not-an-email")
+    let bad_email = map_set(bad_email, "age", 25)
+
+    let ok3 = validator_is_valid("UserRegistration", bad_email)
+    if (ok3) {
+        print("  FAIL: 잘못된 이메일을 통과시켜버림")
+    } else {
+        print("  PASS: 이메일 패턴 오류 감지 성공")
+    }
+
+    // ── 테스트 4: 나이 범위 오류 감지 ────────────────────────────────────
+    print("[TEST 4] 나이 범위 오류 감지 (min: 18)")
+    let minor = map_new()
+    let minor = map_set(minor, "username", "youngdev")
+    let minor = map_set(minor, "email", "young@test.kr")
+    let minor = map_set(minor, "age", 15)
+
+    let ok4 = validator_is_valid("UserRegistration", minor)
+    if (ok4) {
+        print("  FAIL: 미성년자 나이를 통과시켜버림")
+    } else {
+        print("  PASS: 나이 범위 오류 감지 성공")
+    }
+
+    // ── 테스트 5: get_errors() - 상세 오류 메시지 ────────────────────────
+    print("[TEST 5] get_errors() 상세 오류 메시지")
+    let all_bad = map_new()
+    let all_bad = map_set(all_bad, "username", "x")
+    let all_bad = map_set(all_bad, "email", "invalid-email")
+    let all_bad = map_set(all_bad, "age", 5)
+
+    let errors = validator_get_errors("UserRegistration", all_bad)
+    let err_count = array_length(errors)
+    print(string_concat("  오류 개수: ", int_to_string(err_count)))
+    if (err_count > 0) {
+        print("  PASS: 오류 메시지 수집 성공")
+        let i = 0
+        while (i < err_count) {
+            let msg = array_get(errors, i)
+            print(string_concat("    - ", msg))
+            let i = i + 1
+        }
+    } else {
+        print("  FAIL: 오류가 있는데 빈 배열 반환")
+    }
+
+    // ── 테스트 6: Product struct 검증 ────────────────────────────────────
+    print("[TEST 6] Product struct 검증")
+    let p = map_new()
+    let p = map_set(p, "name", "FreeLang")
+    let p = map_set(p, "price", 9900)
+    let p = map_set(p, "stock", 100)
+
+    let ok6 = validator_is_valid("Product", p)
+    if (ok6) {
+        print("  PASS: Product 정상 데이터 검증 통과")
+    } else {
+        print("  FAIL: Product 정상 데이터가 실패 판정됨")
+    }
+
+    // ── 테스트 7: validator_list_rules() - 등록된 규칙 확인 ──────────────
+    print("[TEST 7] 등록된 검증 규칙 목록 (컴파일 타임 생성)")
+    let rules = validator_list_rules("UserRegistration")
+    let rule_count = array_length(rules)
+    print(string_concat("  UserRegistration 규칙 수: ", int_to_string(rule_count)))
+    let j = 0
+    while (j < rule_count) {
+        let rule = array_get(rules, j)
+        print(string_concat("    ", rule))
+        let j = j + 1
+    }
+
+    print("")
+    print("=== Compile-Time-Validator 테스트 완료 (Joi 대체, 외부 의존성 0%) ===")
+}
